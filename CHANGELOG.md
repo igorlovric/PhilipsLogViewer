@@ -1,5 +1,10 @@
 # Changelog – Philips Log Viewer
 
+## 1.7.1 – 2026-10-28
+
+- The settings file is now called PhilipsLogViewer.config (still JSON); a philips-log-viewer.config.json from an earlier version is renamed automatically at startup, nothing is lost
+- Merge patterns accepts both the new .config and the old .json files
+
 ## 1.7.0 – 2026-10-28
 
 - The program file is now always called PhilipsLogViewer.exe (no version in the name)
