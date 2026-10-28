@@ -143,6 +143,10 @@ impl App {
                 self.start_merge(ctx);
             }
             ui.separator();
+            if item(ui, true, "⏶  Check for updates…".into(), "") {
+                ui.close_menu();
+                self.start_update_check(true);
+            }
             if item(ui, true, "About · What's new".into(), "") {
                 ui.close_menu();
                 self.show_about = true;
@@ -173,7 +177,7 @@ impl App {
             .collapsible(false)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    for (t, name) in [(0u8, "Table columns"), (1u8, "Colors")] {
+                    for (t, name) in [(0u8, "Table columns"), (1u8, "Colors"), (2u8, "Updates")] {
                         let sel = self.settings_tab == t;
                         let txt = RichText::new(name).size(14.0).color(if sel { pal.accent } else { pal.text });
                         if ui.selectable_label(sel, if sel { txt.strong() } else { txt }).clicked() {
@@ -182,6 +186,12 @@ impl App {
                     }
                 });
                 ui.separator();
+                if self.settings_tab == 2 {
+                    self.updates_tab(ui);
+                    ui.add_space(8.0);
+                    ui.label(RichText::new(format!("Settings are stored in {}", config_path().display())).small().color(pal.text_weak));
+                    return;
+                }
                 if self.settings_tab == 1 {
                     self.colors_tab(ui);
                     ui.add_space(8.0);

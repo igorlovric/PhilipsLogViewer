@@ -13,7 +13,7 @@ and publishes the release `v<version>` with the notes from `CHANGELOG.md` – no
 
 ## Running
 
-`philips-log-viewer.exe` – double-click it, then **☰ → Open…** (menu in the top left corner, or Ctrl+O), or drag an `.xml`/`.zip`/`.mdb` into the window.
+`PhilipsLogViewer.exe` – double-click it, then **☰ → Open…** (menu in the top left corner, or Ctrl+O), or drag an `.xml`/`.zip`/`.mdb` into the window.
 
 The **☰ menu** contains: Open, Files in ZIP, System, Charts, Codes, Settings, Merge patterns, About.
 You can also right-click a log → *Open with* → choose the exe (the file is passed as an argument).
@@ -34,9 +34,17 @@ You can also right-click a log → *Open with* → choose the exe (the file is p
    ```powershell
    cargo build --release
    ```
-   The program is at `target\release\philips-log-viewer.exe`.
+   The program is at `target\release\PhilipsLogViewer.exe`.
    The first build takes a few minutes (downloads and compiles libraries); later builds are fast.
    To try changes quickly: `cargo run --release -- "path\to\log.zip"`
+
+## Updates
+
+At startup the program asks GitHub whether a newer release exists (no account or token needed; without internet it stays quiet).
+If there is one, a **⏶ Update x.y.z** button appears in the top right corner: it shows what's new and offers **Update now**, **Later** or **Skip this version**.
+Update now downloads `PhilipsLogViewer.exe`, checks it against the published SHA-256, renames the running exe to `PhilipsLogViewer.exe.old`,
+puts the new one in its place and starts it with the same log (the `.old` file is deleted on the next start). The config next to the exe is not touched.
+**☰ → Settings → Updates**: check at startup on / off, *Install updates automatically* (downloaded in the background, put in place when the program closes). **☰ → Check for updates…** checks at any time.
 
 ## Features
 
@@ -86,7 +94,7 @@ For a log opened from inside the ZIP (📊) the file is called `<zip name>__<fil
 It is saved automatically a second after each change and restored when you open that log again.
 
 **Global** – `philips-log-viewer.config.json` next to the exe: all patterns, the code dictionary and settings (visible columns, row colors per category, last folder, details panel position and size, Formatted/Raw, chosen chart values).
-To give the program to a colleague, copy the exe and this file.
+To give the program to a colleague, copy `PhilipsLogViewer.exe` and this file.
 If the exe folder is not writable (e.g. Program Files), the file goes to `%APPDATA%\PhilipsLogViewer\`.
 
 ## Code structure
@@ -108,6 +116,7 @@ If the exe folder is not writable (e.g. Program Files), the file goes to `%APPDA
 | `src/codes_ui.rs` | code dictionary |
 | `src/charts.rs` | charts of numeric values (`egui_plot`) |
 | `src/version.rs` | version number and change history |
+| `src/update.rs`, `src/update_ui.rs` | update check and self-update from GitHub releases |
 | `src/timeline.rs` | timeline |
 | `src/patterns.rs` | pattern definition and recognition |
 | `src/theme.rs` | colors |

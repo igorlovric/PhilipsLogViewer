@@ -51,11 +51,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v=${{ steps.ver.outputs.version }}
-          exe="philips-log-viewer-$v.exe"
-          cp target/release/philips-log-viewer.exe "$exe"
+          exe="PhilipsLogViewer.exe"
+          cp target/release/PhilipsLogViewer.exe "$exe"
+          # checksum, used by the program's self-update to verify the download
+          sha256sum "$exe" | cut -d' ' -f1 > "$exe.sha256"
           # notes = the section of this version in CHANGELOG.md
           awk -v v="$v" '
             /^## / { if (found) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { found = 1; next } }
             found { print }
           ' CHANGELOG.md > notes.md
-          gh release create "v$v" "$exe" --title "Philips Log Viewer $v" --notes-file notes.md --target "$GITHUB_SHA"
+          gh release create "v$v" "$exe" "$exe.sha256" --title "Philips Log Viewer $v" --notes-file notes.md --target "$GITHUB_SHA"

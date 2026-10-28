@@ -13,6 +13,7 @@ mod parser;
 mod patterns;
 mod theme;
 mod timeline;
+mod update;
 
 use eframe::egui;
 use std::sync::Arc;
