@@ -10,6 +10,8 @@ mod menu_ui;
 mod colors_ui;
 #[path = "update_ui.rs"]
 mod update_ui;
+#[path = "share_ui.rs"]
+mod share_ui;
 
 use crate::config::*;
 use crate::model::*;
@@ -288,6 +290,7 @@ pub struct App {
     /// global config: save shortly after the last change (color pickers change every frame)
     cfg_save_due: Option<f64>,
     upd: update_ui::UpdateState,
+    share: share_ui::ShareState,
     charts: Option<charts::ChartState>,
     charts_filter: String,
     pending_new_pattern: bool,
@@ -366,6 +369,7 @@ impl App {
             new_category: String::new(),
             cfg_save_due: None,
             upd: Default::default(),
+            share: Default::default(),
             charts: None,
             charts_filter: String::new(),
             pending_new_pattern: false,
@@ -379,6 +383,12 @@ impl App {
         crate::update::cleanup();
         if app.cfg.check_updates {
             app.start_update_check(false);
+        }
+        if app.ensure_uids() {
+            let _ = app.save_cfg();
+        }
+        if app.cfg.share_sync {
+            app.start_share_sync(false);
         }
         // first start of a new version: show what's new
         if app.cfg.app_version != crate::version::VERSION {
@@ -906,6 +916,7 @@ impl App {
         let mut p = Pattern::defaults_from(steps, log.file_name.clone(), created, now as u64);
         let palette = [[255, 153, 51], [0, 200, 180], [90, 160, 255], [255, 90, 160], [160, 220, 60], [200, 120, 255]];
         p.color = palette[self.patterns.len() % palette.len()];
+        p.author = self.author();
         self.editor = Some(PatternEditor { p, is_new: true, error: None });
     }
 
@@ -931,7 +942,7 @@ impl App {
     // ------------------------------------------------------------ input
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
-        if self.log.is_none() || self.editor.is_some() || self.code_edit.is_some() || self.merge.is_some() {
+        if self.log.is_none() || self.editor.is_some() || self.code_edit.is_some() || self.merge.is_some() || !self.cfg.author_asked {
             return;
         }
         let typing = ctx.wants_keyboard_input();
@@ -2163,9 +2174,17 @@ impl App {
                                     if occ > 0 {
                                         ui.label(RichText::new(format!("recognized {}×", occ)).color(pal.pattern).strong());
                                     }
+                                    if let Some((t, c)) = share_ui::share_label(p) {
+                                        ui.label(RichText::new(t).small().color(match c {
+                                            1 => pal.accent,
+                                            2 => pal.sev_warn,
+                                            _ => pal.text_weak,
+                                        }));
+                                    }
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                         if self.confirm_delete == Some(p.id) {
-                                            if ui.button(RichText::new("Confirm delete").color(pal.sev_err)).clicked() {
+                                            let txt = if p.shared && !p.foreign { "Confirm delete (also from the shared library)" } else { "Confirm delete" };
+                                            if ui.button(RichText::new(txt).color(pal.sev_err)).clicked() {
                                                 delete = Some(p.id);
                                             }
                                         } else if ui.button("🗑").on_hover_text("Delete").clicked() {
@@ -2220,6 +2239,10 @@ impl App {
             }
         }
         if let Some(id) = delete {
+            if let Some(p) = self.patterns.iter().find(|p| p.id == id).cloned() {
+                self.withdraw_later(&p);
+                self.schedule_share_sync(ctx.input(|i| i.time));
+            }
             self.patterns.retain(|p| p.id != id);
             self.confirm_delete = None;
             if let Err(e) = self.save_cfg() {
@@ -2303,6 +2326,19 @@ impl App {
                     }
                 }
             });
+            ui.add_space(6.0);
+            if ed.p.foreign {
+                ui.label(
+                    RichText::new(format!(
+                        "Shared by {}. Saving changes makes your own copy – the shared original stays unchanged.",
+                        if ed.p.author.is_empty() { "a colleague" } else { &ed.p.author }
+                    ))
+                    .color(pal.sev_warn),
+                );
+            } else {
+                ui.checkbox(&mut ed.p.shared, "Share with colleagues (shared pattern library)")
+                    .on_hover_text("The pattern is sent to the shared library; later changes are sent automatically");
+            }
             if let Some(err) = &ed.error {
                 ui.label(RichText::new(err).color(pal.sev_err));
             }
@@ -2328,13 +2364,49 @@ impl App {
                 ed.error = Some("A pattern needs at least one step.".into());
                 return;
             }
-            let p = ed.p.clone();
+            let mut p = ed.p.clone();
             let is_new = ed.is_new;
             self.editor = None;
-            if is_new {
+            let old = self.patterns.iter().find(|x| x.id == p.id).cloned();
+            let mut copied = false;
+            if let Some(o) = old.as_ref().filter(|o| o.foreign) {
+                if o.checksum() != p.checksum() {
+                    // someone else's pattern: the change becomes an own copy, the original stays
+                    if p.name.trim() == o.name.trim() {
+                        p.name = format!("{} (my copy)", p.name.trim());
+                    }
+                    p.id = self.patterns.iter().map(|x| x.id + 1).max().unwrap_or(1);
+                    p.uid = new_uid();
+                    p.foreign = false;
+                    p.shared = false;
+                    p.author = self.author();
+                    p.synced_checksum.clear();
+                    p.remote_checksum.clear();
+                    copied = true;
+                } else {
+                    p = o.clone();
+                }
+            }
+            if let Some(o) = old.as_ref().filter(|o| !o.foreign && o.shared && !p.shared) {
+                // unshared in the editor
+                self.withdraw_later(o);
+                p.synced_checksum.clear();
+                p.remote_checksum.clear();
+            }
+            if p.shared {
+                self.cfg.share_pending_withdraw.retain(|u| *u != p.uid);
+            }
+            let sync = p.shared || old.as_ref().is_some_and(|o| o.shared);
+            if is_new || copied {
                 self.patterns.push(p);
             } else if let Some(x) = self.patterns.iter_mut().find(|x| x.id == p.id) {
                 *x = p;
+            }
+            if sync {
+                self.schedule_share_sync(ctx.input(|i| i.time));
+            }
+            if copied {
+                self.toast(ctx, "Saved as your own copy – the shared original stays unchanged");
             }
             if let Err(e) = self.save_cfg() {
                 self.toast(ctx, format!("Error saving patterns: {e}"));
@@ -2501,6 +2573,8 @@ impl eframe::App for App {
         self.merge_dialog(ctx);
         self.poll_update(ctx);
         self.update_dialog(ctx);
+        self.poll_share(ctx);
+        self.share_windows(ctx);
         if std::mem::take(&mut self.pending_new_pattern) {
             self.new_pattern_from_selection(ctx);
         }

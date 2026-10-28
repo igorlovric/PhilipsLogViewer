@@ -1,0 +1,2 @@
+# in case the web server points to this folder instead of public/: deny everything
+Require all denied

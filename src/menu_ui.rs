@@ -34,7 +34,7 @@ pub struct MergeState {
     pub items: Vec<MergeItem>,
 }
 
-fn steps_key(p: &Pattern) -> String {
+pub(super) fn steps_key(p: &Pattern) -> String {
     let mut k = format!("{:?}|", p.match_mode);
     for s in &p.steps {
         k.push_str(&format!("{}|{}|{};", s.event_id, crate::model::normalize_desc(&s.description), s.offset_ms));
@@ -138,6 +138,15 @@ impl App {
                 }
                 self.show_settings = true;
             }
+            let n_new = self.new_shared_count();
+            let label = if n_new > 0 { format!("🎯  Shared patterns ({n_new} new)") } else { "🎯  Shared patterns".to_owned() };
+            if item(ui, true, label, "") {
+                ui.close_menu();
+                self.share.show = true;
+                if !self.sharing_busy() {
+                    self.start_share_sync(false);
+                }
+            }
             if item(ui, true, "🎯  Merge patterns…".into(), "") {
                 ui.close_menu();
                 self.start_merge(ctx);
@@ -177,7 +186,7 @@ impl App {
             .collapsible(false)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    for (t, name) in [(0u8, "Table columns"), (1u8, "Colors"), (2u8, "Updates")] {
+                    for (t, name) in [(0u8, "Table columns"), (1u8, "Colors"), (2u8, "Sharing"), (3u8, "Updates")] {
                         let sel = self.settings_tab == t;
                         let txt = RichText::new(name).size(14.0).color(if sel { pal.accent } else { pal.text });
                         if ui.selectable_label(sel, if sel { txt.strong() } else { txt }).clicked() {
@@ -187,6 +196,12 @@ impl App {
                 });
                 ui.separator();
                 if self.settings_tab == 2 {
+                    self.sharing_tab(ui);
+                    ui.add_space(8.0);
+                    ui.label(RichText::new(format!("Settings are stored in {}", config_path().display())).small().color(pal.text_weak));
+                    return;
+                }
+                if self.settings_tab == 3 {
                     self.updates_tab(ui);
                     ui.add_space(8.0);
                     ui.label(RichText::new(format!("Settings are stored in {}", config_path().display())).small().color(pal.text_weak));
@@ -397,6 +412,20 @@ impl App {
             let mut replaced = 0;
             for it in m.items {
                 let mut p = it.p;
+                // sharing state of patterns from a colleague's config: synced ones belong to someone else
+                let keep_both = matches!(it.choice, MergeChoice::KeepBoth);
+                if p.uid.is_empty() || keep_both || self.patterns.iter().any(|x| x.uid == p.uid) {
+                    p.uid = new_uid();
+                    p.foreign = false;
+                    p.synced_checksum.clear();
+                    p.remote_checksum.clear();
+                }
+                if p.foreign || !p.synced_checksum.is_empty() {
+                    p.foreign = true;
+                } else {
+                    p.shared = false;
+                }
+                p.shared &= !p.foreign;
                 match it.choice {
                     MergeChoice::Skip => continue,
                     MergeChoice::Replace(id) => {

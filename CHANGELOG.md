@@ -1,5 +1,15 @@
 # Changelog – Philips Log Viewer
 
+## 1.8.0 – 2026-10-28
+
+- Shared patterns: share your patterns with colleagues and add theirs, right from the program – no account, no browser (☰ → Shared patterns)
+- Only patterns you tick “Share” are sent; later changes to them are sent automatically, and colleagues get them at their next start
+- Editing a colleague's pattern makes your own copy; the shared original stays unchanged
+- When an author withdraws a pattern, you are asked whether to delete your copy too
+- Every pattern now has a unique id and a checksum (to recognize changes); existing patterns get one automatically
+- Your name for shared patterns: taken from the Windows user name, confirmed at the first start, changeable in Settings → Sharing
+- Server address and key are built in and can be overridden in PhilipsLogViewer.config (share_server, share_api_key) for testing
+
 ## 1.7.1 – 2026-10-28
 
 - The settings file is now called PhilipsLogViewer.config (still JSON); a philips-log-viewer.config.json from an earlier version is renamed automatically at startup, nothing is lost

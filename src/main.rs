@@ -14,6 +14,7 @@ mod patterns;
 mod theme;
 mod timeline;
 mod update;
+mod share;
 
 use eframe::egui;
 use std::sync::Arc;

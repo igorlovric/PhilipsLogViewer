@@ -51,6 +51,48 @@ pub struct Pattern {
     /// occurrences below this similarity (%) are ignored
     pub min_similarity: f32,
     pub match_mode: MatchMode,
+    /// unique id, made when the pattern is created (also identifies it in the shared library)
+    #[serde(default)]
+    pub uid: String,
+    /// author name (own patterns: the user's name; downloaded ones: the colleague's)
+    #[serde(default)]
+    pub author: String,
+    /// own pattern the user chose to share with colleagues
+    #[serde(default)]
+    pub shared: bool,
+    /// downloaded from the shared library (someone else's): editing it makes an own copy
+    #[serde(default)]
+    pub foreign: bool,
+    /// checksum of the content at the last sync with the server ("" = never synced)
+    #[serde(default)]
+    pub synced_checksum: String,
+    /// checksum the server had at the last sync
+    #[serde(default)]
+    pub remote_checksum: String,
+}
+
+/// the part of a pattern that is shared and covered by the checksum (field order is fixed)
+#[derive(Serialize, Deserialize)]
+pub struct SharedContent {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub comment: String,
+    pub color: [u8; 3],
+    #[serde(default)]
+    pub created: String,
+    #[serde(default)]
+    pub source_file: String,
+    pub steps: Vec<PatternStep>,
+    pub time_tolerance_pct: f32,
+    pub min_slack_ms: i64,
+    pub min_similarity: f32,
+    pub match_mode: MatchMode,
+}
+
+pub fn new_uid() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 impl Pattern {
@@ -68,7 +110,54 @@ impl Pattern {
             min_slack_ms: 2000,
             min_similarity: 75.0,
             match_mode: MatchMode::IdAndDescription,
+            uid: new_uid(),
+            author: String::new(),
+            shared: false,
+            foreign: false,
+            synced_checksum: String::new(),
+            remote_checksum: String::new(),
         }
+    }
+    pub fn content(&self) -> SharedContent {
+        SharedContent {
+            name: self.name.clone(),
+            description: self.description.clone(),
+            comment: self.comment.clone(),
+            color: self.color,
+            created: self.created.clone(),
+            source_file: self.source_file.clone(),
+            steps: self.steps.clone(),
+            time_tolerance_pct: self.time_tolerance_pct,
+            min_slack_ms: self.min_slack_ms,
+            min_similarity: self.min_similarity,
+            match_mode: self.match_mode,
+        }
+    }
+    /// the content as sent to the server (always serialized the same way)
+    pub fn content_json(&self) -> String {
+        serde_json::to_string(&self.content()).unwrap_or_default()
+    }
+    /// SHA-256 of content_json – changes whenever the shared content changes
+    pub fn checksum(&self) -> String {
+        use sha2::{Digest, Sha256};
+        Sha256::digest(self.content_json().as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+    }
+    pub fn set_content(&mut self, c: SharedContent) {
+        self.name = c.name;
+        self.description = c.description;
+        self.comment = c.comment;
+        self.color = c.color;
+        self.created = c.created;
+        self.source_file = c.source_file;
+        self.steps = c.steps;
+        self.time_tolerance_pct = c.time_tolerance_pct;
+        self.min_slack_ms = c.min_slack_ms;
+        self.min_similarity = c.min_similarity;
+        self.match_mode = c.match_mode;
+    }
+    /// own pattern that has local changes the server does not have yet
+    pub fn needs_upload(&self) -> bool {
+        !self.foreign && self.shared && self.synced_checksum != self.checksum()
     }
     pub fn span_ms(&self) -> i64 {
         self.steps.last().map(|s| s.offset_ms).unwrap_or(0)
@@ -281,5 +370,26 @@ mod tests {
         for o in &occ {
             println!("  {} sim {:.1}% found {}/{}", fmt_ts(o.start_ts), o.similarity, o.found, p2.steps.len());
         }
+    }
+}
+
+#[cfg(test)]
+mod share_tests {
+    use super::*;
+    #[test]
+    fn checksum_survives_round_trip() {
+        let st = PatternStep { event_id: "42".into(), description: "Ärger \"x\" 1.5".into(), category: "Error".into(), unit: "U".into(), offset_ms: 1234 };
+        let mut p = Pattern::defaults_from(vec![st], "f.zip".into(), "2026-10-28 10:00".into(), 1);
+        p.name = "Test".into();
+        p.time_tolerance_pct = 33.3;
+        p.min_similarity = 81.7;
+        let json = p.content_json();
+        let mut q = Pattern::defaults_from(vec![], String::new(), String::new(), 2);
+        q.set_content(serde_json::from_str(&json).unwrap());
+        assert_eq!(p.checksum(), q.checksum());
+        assert_eq!(q.content_json(), json);
+        q.comment = "changed".into();
+        assert_ne!(p.checksum(), q.checksum());
+        assert_eq!(p.uid.len(), 36);
     }
 }

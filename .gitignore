@@ -2,3 +2,4 @@
 *.plv.json
 PhilipsLogViewer.config
 philips-log-viewer.config.json
+server/config.php

@@ -2666,7 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "philips-log-viewer"
-version = "1.7.1"
+version = "1.8.0"
 dependencies = [
  "chrono",
  "dirs",
@@ -2680,6 +2680,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "ureq",
+ "uuid",
  "winresource",
  "zip",
 ]
@@ -3722,6 +3723,8 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "url",
  "webpki-roots 0.26.11",
 ]
@@ -3757,6 +3760,7 @@ version = "1.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
 dependencies = [
+ "getrandom 0.4.3",
  "js-sys",
  "serde_core",
  "wasm-bindgen",

@@ -78,6 +78,20 @@ puts the new one in its place and starts it with the same log (the `.old` file i
   Enter a name, description, comment, color and tolerances. Every time a log is loaded the patterns are searched automatically;
   the **Patterns** button turns orange and shows how many were recognized. The window lists each occurrence with % similarity and a "Show" button.
 
+## Shared patterns
+
+**☰ → Shared patterns**: *Available* lists the patterns colleagues shared that you do not have yet (tick → Add);
+*My patterns* shows your own patterns with a **Share** tick box. Nobody has to log in, nothing opens in a browser.
+
+- Only patterns ticked *Share* (also in the pattern editor) go to the library; changes to them are sent automatically.
+- Patterns added from the library are kept up to date with their author's changes. Editing one makes your own copy (“… (my copy)”); the original stays as it is.
+- Unticking *Share* or deleting an own shared pattern withdraws it from the library; colleagues are asked whether to delete their copy too.
+- Every pattern has a unique id (`uid`) and a checksum of its content, so changes are recognized.
+- Your name (shown with your patterns) is taken from the Windows user name and confirmed at the first start; Settings → Sharing changes it.
+- The key that makes you the owner of your shared patterns is in `%APPDATA%\PhilipsLogViewer\owner.key` – on purpose not in `PhilipsLogViewer.config`, which is given to colleagues.
+- Server: built in (`https://plv.shadowdreams.net`); `share_server` / `share_api_key` in `PhilipsLogViewer.config` override it (e.g. a test server); `share_admin_key` enables an admin tab that can withdraw any pattern.
+  The built-in API key comes from the repository secret `PLV_API_KEY` at build time. The server code is in `server/` (see `server/README.md`).
+
 ## How pattern recognition works
 
 - Each pattern step is compared by **Event ID + description** (numbers in the description are ignored); Event ID only or description only are also available.
@@ -118,6 +132,8 @@ Up to version 1.7.0 the file was called `philips-log-viewer.config.json`; a file
 | `src/charts.rs` | charts of numeric values (`egui_plot`) |
 | `src/version.rs` | version number and change history |
 | `src/update.rs`, `src/update_ui.rs` | update check and self-update from GitHub releases |
+| `src/share.rs`, `src/share_ui.rs` | shared pattern library (client) |
+| `server/` | shared pattern library server (PHP + MySQL) |
 | `src/timeline.rs` | timeline |
 | `src/patterns.rs` | pattern definition and recognition |
 | `src/theme.rs` | colors |
