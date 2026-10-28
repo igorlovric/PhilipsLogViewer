@@ -64,6 +64,29 @@ pub struct GlobalConfig {
     /// version the user chose not to be offered again
     #[serde(default)]
     pub skipped_version: String,
+    /// name shown with shared patterns (default: Windows user name, confirmed at first start)
+    #[serde(default)]
+    pub author_name: String,
+    #[serde(default)]
+    pub author_asked: bool,
+    /// sync the shared pattern library at startup and after changes
+    #[serde(default = "yes")]
+    pub share_sync: bool,
+    /// override of the built-in server address (empty = built-in), e.g. for testing
+    #[serde(default)]
+    pub share_server: String,
+    /// override of the built-in API key (empty = built-in)
+    #[serde(default)]
+    pub share_api_key: String,
+    /// admin key: allows withdrawing any shared pattern
+    #[serde(default)]
+    pub share_admin_key: String,
+    /// own patterns to withdraw from the server at the next sync (unshared or deleted)
+    #[serde(default)]
+    pub share_pending_withdraw: Vec<String>,
+    /// shared patterns of colleagues already seen in the "Available" list
+    #[serde(default)]
+    pub share_seen: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -136,6 +159,14 @@ impl Default for GlobalConfig {
             check_updates: true,
             auto_update: false,
             skipped_version: String::new(),
+            author_name: String::new(),
+            author_asked: false,
+            share_sync: true,
+            share_server: String::new(),
+            share_api_key: String::new(),
+            share_admin_key: String::new(),
+            share_pending_withdraw: vec![],
+            share_seen: vec![],
         }
     }
 }
