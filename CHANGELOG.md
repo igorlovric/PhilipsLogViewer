@@ -1,5 +1,13 @@
 # Changelog – Philips Log Viewer
 
+## 1.7.0 – 2026-10-28
+
+- The program file is now always called PhilipsLogViewer.exe (no version in the name)
+- Update check: at startup the program asks GitHub whether there is a new version; if so, a button appears in the top right corner with what's new, Update now / Later / Skip this version
+- Update now downloads the new version, checks it, replaces the program and starts it again with the same log – settings, patterns and notes stay as they are
+- Settings → Updates: switch the check at startup on / off, or let updates install automatically (downloaded in the background, put in place when the program closes)
+- ☰ → Check for updates… to check at any time
+
 ## 1.6.0 – 2026-10-28
 
 - Settings → Colors: choose the row color of every event category (Information, Warning, Error, Fatal, UserMessage, Command…) or leave a category without color; the defaults are the colors used so far

@@ -8,6 +8,8 @@ mod charts;
 mod menu_ui;
 #[path = "colors_ui.rs"]
 mod colors_ui;
+#[path = "update_ui.rs"]
+mod update_ui;
 
 use crate::config::*;
 use crate::model::*;
@@ -285,6 +287,7 @@ pub struct App {
     new_category: String,
     /// global config: save shortly after the last change (color pickers change every frame)
     cfg_save_due: Option<f64>,
+    upd: update_ui::UpdateState,
     charts: Option<charts::ChartState>,
     charts_filter: String,
     pending_new_pattern: bool,
@@ -362,6 +365,7 @@ impl App {
             cat_counts: vec![],
             new_category: String::new(),
             cfg_save_due: None,
+            upd: Default::default(),
             charts: None,
             charts_filter: String::new(),
             pending_new_pattern: false,
@@ -372,6 +376,10 @@ impl App {
             }),
         };
         app.apply_colors();
+        crate::update::cleanup();
+        if app.cfg.check_updates {
+            app.start_update_check(false);
+        }
         // first start of a new version: show what's new
         if app.cfg.app_version != crate::version::VERSION {
             app.show_about = true;
@@ -1076,6 +1084,7 @@ impl App {
                     }
 
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        self.update_badge(ui);
                         // patterns button: changes color when something is recognized
                         let occ = self.total_occurrences();
                         let recognized = self.results.len();
@@ -2415,6 +2424,7 @@ impl eframe::App for App {
         if self.cfg_save_due.is_some() {
             self.save_settings();
         }
+        self.update_on_exit();
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -2489,6 +2499,8 @@ impl eframe::App for App {
         self.charts_window(ctx);
         self.settings_window(ctx);
         self.merge_dialog(ctx);
+        self.poll_update(ctx);
+        self.update_dialog(ctx);
         if std::mem::take(&mut self.pending_new_pattern) {
             self.new_pattern_from_selection(ctx);
         }

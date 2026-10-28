@@ -53,6 +53,15 @@ pub struct GlobalConfig {
     /// background of selected rows
     #[serde(default = "default_selected_color")]
     pub selected_row_color: [u8; 3],
+    /// look for a new version on GitHub at startup
+    #[serde(default = "yes")]
+    pub check_updates: bool,
+    /// download a new version in the background and install it when the program closes
+    #[serde(default)]
+    pub auto_update: bool,
+    /// version the user chose not to be offered again
+    #[serde(default)]
+    pub skipped_version: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -122,6 +131,9 @@ impl Default for GlobalConfig {
             column_sets: BTreeMap::new(),
             category_colors: default_category_colors(),
             selected_row_color: default_selected_color(),
+            check_updates: true,
+            auto_update: false,
+            skipped_version: String::new(),
         }
     }
 }

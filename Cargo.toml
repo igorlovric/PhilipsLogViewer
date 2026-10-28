@@ -1,7 +1,11 @@
 [package]
 name = "philips-log-viewer"
-version = "1.6.0"
+version = "1.7.0"
 edition = "2021"
+
+[[bin]]
+name = "PhilipsLogViewer"
+path = "src/main.rs"
 
 [dependencies]
 eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "glow", "accesskit", "x11"] }
@@ -14,6 +18,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 jetdb = "0.3.3"
 egui_plot = "0.31.0"
+ureq = { version = "2.12", default-features = false, features = ["tls", "native-certs"] }
+sha2 = "0.10"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]

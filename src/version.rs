@@ -12,6 +12,17 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
+        version: "1.7.0",
+        date: "2026-10-28",
+        changes: &[
+            "The program file is now always called PhilipsLogViewer.exe (no version in the name)",
+            "Update check: at startup the program asks GitHub whether there is a new version; if so, a button appears in the top right corner with what's new, Update now / Later / Skip this version",
+            "Update now downloads the new version, checks it, replaces the program and starts it again with the same log – settings, patterns and notes stay as they are",
+            "Settings → Updates: switch the check at startup on / off, or let updates install automatically (downloaded in the background, put in place when the program closes)",
+            "☰ → Check for updates… to check at any time",
+        ],
+    },
+    Release {
         version: "1.6.0",
         date: "2026-10-28",
         changes: &[
