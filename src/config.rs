@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub const CONFIG_FILE: &str = "philips-log-viewer.config.json";
+pub const CONFIG_FILE: &str = "PhilipsLogViewer.config";
+/// name used up to 1.7.0 – renamed to CONFIG_FILE when found
+pub const OLD_CONFIG_FILE: &str = "philips-log-viewer.config.json";
 pub const LOG_EXT: &str = "plv.json";
 
 // ------------------------------------------------------------------ global config
@@ -164,9 +166,29 @@ pub fn config_path() -> PathBuf {
     appdata_config()
 }
 
+/// renames a config with the old name (next to the exe and in %APPDATA%) to the new name;
+/// returns an old file that could not be renamed (read-only folder), to be read instead
+fn migrate_old_config() -> Option<PathBuf> {
+    let mut unrenamed = None;
+    for new in exe_dir_config().into_iter().chain([appdata_config()]) {
+        let old = new.with_file_name(OLD_CONFIG_FILE);
+        if old.exists() && !new.exists() && std::fs::rename(&old, &new).is_err() && unrenamed.is_none() {
+            unrenamed = Some(old);
+        }
+    }
+    unrenamed
+}
+
 pub fn load_config() -> GlobalConfig {
+    let old = migrate_old_config();
     let p = config_path();
-    let p = if p.exists() { p } else { appdata_config() };
+    let p = if p.exists() {
+        p
+    } else if appdata_config().exists() {
+        appdata_config()
+    } else {
+        old.unwrap_or(p)
+    };
     let mut c: GlobalConfig = std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
     let known = if c.known_columns.is_empty() {
         // configs from before Component/Package existed

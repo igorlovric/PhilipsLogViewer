@@ -271,7 +271,7 @@ impl App {
     // ------------------------------------------------------------ merge patterns
 
     fn start_merge(&mut self, ctx: &egui::Context) {
-        let mut d = rfd::FileDialog::new().add_filter("Philips Log Viewer config / patterns (JSON)", &["json"]).add_filter("All files", &["*"]);
+        let mut d = rfd::FileDialog::new().add_filter("Philips Log Viewer config / patterns", &["config", "json"]).add_filter("All files", &["*"]);
         if let Some(dir) = &self.cfg.last_dir {
             d = d.set_directory(dir);
         }

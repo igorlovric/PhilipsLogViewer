@@ -1,3 +1,4 @@
 /target
 *.plv.json
+PhilipsLogViewer.config
 philips-log-viewer.config.json
