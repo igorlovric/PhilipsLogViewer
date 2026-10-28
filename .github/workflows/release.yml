@@ -1,0 +1,61 @@
+# Builds the Windows exe and publishes a GitHub Release for every new version.
+# Runs on each push to main: if there is no release v<version from Cargo.toml> yet,
+# it builds, tags and publishes it with the notes of that version from CHANGELOG.md.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        shell: bash
+        run: |
+          v=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "v$v" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v$v already exists – nothing to do"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Set up Rust
+        if: steps.ver.outputs.exists == 'false'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        if: steps.ver.outputs.exists == 'false'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        if: steps.ver.outputs.exists == 'false'
+        run: cargo build --release --locked
+
+      - name: Publish release
+        if: steps.ver.outputs.exists == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${{ steps.ver.outputs.version }}
+          exe="philips-log-viewer-$v.exe"
+          cp target/release/philips-log-viewer.exe "$exe"
+          # notes = the section of this version in CHANGELOG.md
+          awk -v v="$v" '
+            /^## / { if (found) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          gh release create "v$v" "$exe" --title "Philips Log Viewer $v" --notes-file notes.md --target "$GITHUB_SHA"

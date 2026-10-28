@@ -4,8 +4,12 @@ Desktop viewer for Philips system logs (`.xml`, zipped `.xml`, and CT log databa
 
 Version history: see `CHANGELOG.md`, or click the program name / version in the top left corner of the program.
 
+**Download**: the ready-made exe of every version is under [Releases](https://github.com/igorlovric/PhilipsLogViewer/releases).
+
 To release a new version: raise `version` in `Cargo.toml` and add an entry at the top of `CHANGELOG` in `src/version.rs`
 (and the same text in `CHANGELOG.md`). On the first start of a new version the program shows "What's new".
+When the change reaches the `main` branch, GitHub Actions (`.github/workflows/release.yml`) builds the exe on Windows
+and publishes the release `v<version>` with the notes from `CHANGELOG.md` – nothing has to be built or uploaded by hand.
 
 ## Running
 
