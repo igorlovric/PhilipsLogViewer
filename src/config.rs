@@ -87,6 +87,9 @@ pub struct GlobalConfig {
     /// shared patterns of colleagues already seen in the "Available" list
     #[serde(default)]
     pub share_seen: Vec<String>,
+    /// problem found while reading the file (shown once at startup, not saved)
+    #[serde(skip)]
+    pub load_warning: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -167,6 +170,7 @@ impl Default for GlobalConfig {
             share_admin_key: String::new(),
             share_pending_withdraw: vec![],
             share_seen: vec![],
+            load_warning: None,
         }
     }
 }
@@ -220,7 +224,27 @@ pub fn load_config() -> GlobalConfig {
     } else {
         old.unwrap_or(p)
     };
-    let mut c: GlobalConfig = std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let mut c = match std::fs::read_to_string(&p) {
+        Ok(s) => {
+            let (c, problem) = parse_config(&s);
+            if let Some(problem) = problem {
+                // keep the original next to it and write the repaired file right away
+                let bak = p.with_file_name(format!("{CONFIG_FILE}.bak-{}", chrono::Local::now().format("%Y%m%d-%H%M%S")));
+                let _ = std::fs::write(&bak, &s);
+                let mut c = c;
+                let saved = save_config(&c).is_ok();
+                c.load_warning = Some(format!(
+                    "{problem}\n\nThe original file was kept as {}{}",
+                    bak.display(),
+                    if saved { "; the repaired settings were saved." } else { "." }
+                ));
+                c
+            } else {
+                c
+            }
+        }
+        Err(_) => GlobalConfig::default(),
+    };
     let known = if c.known_columns.is_empty() {
         // configs from before Component/Package existed
         Col::ALL.iter().copied().filter(|x| !matches!(x, Col::Component | Col::Package)).collect()
@@ -235,6 +259,82 @@ pub fn load_config() -> GlobalConfig {
     c.visible_columns = Col::ALL.iter().copied().filter(|x| c.visible_columns.contains(x)).collect();
     c.known_columns = Col::ALL.to_vec();
     c
+}
+
+/// Reads the settings as well as possible: a duplicated key keeps its last value, a setting with an
+/// invalid value falls back to its default, an invalid pattern is skipped – everything else is kept.
+/// Returns a description of what had to be repaired (None = the file was fine).
+pub fn parse_config(s: &str) -> (GlobalConfig, Option<String>) {
+    use serde_json::Value;
+    if let Ok(c) = serde_json::from_str::<GlobalConfig>(s) {
+        return (c, None);
+    }
+    let obj = match serde_json::from_str::<Value>(s) {
+        Ok(Value::Object(o)) => o,
+        Ok(_) => return (GlobalConfig::default(), Some("The settings file does not contain settings; the program started with default settings.".into())),
+        Err(e) => {
+            return (
+                GlobalConfig::default(),
+                Some(format!("The settings file is not valid JSON ({e}); the program started with default settings.")),
+            )
+        }
+    };
+    let ok = |v: &Value| serde_json::from_value::<GlobalConfig>(v.clone()).is_ok();
+    let mut base = serde_json::to_value(GlobalConfig::default()).unwrap_or(Value::Null);
+    let mut reset: Vec<String> = Vec::new();
+    let mut skipped = 0;
+    for (k, v) in &obj {
+        let mut trial = base.clone();
+        trial[k] = v.clone();
+        if ok(&trial) {
+            base = trial;
+        } else if let (true, Value::Array(items)) = (k == "patterns", v) {
+            let good: Vec<Value> = items.iter().filter(|p| serde_json::from_value::<Pattern>((*p).clone()).is_ok()).cloned().collect();
+            skipped = items.len() - good.len();
+            base[k] = Value::Array(good);
+        } else {
+            reset.push(k.clone());
+        }
+    }
+    let c: GlobalConfig = serde_json::from_value(base).unwrap_or_default();
+    let mut msg = Vec::new();
+    if !reset.is_empty() {
+        msg.push(format!("These settings had invalid values and were set to their defaults: {}.", reset.join(", ")));
+    }
+    if skipped > 0 {
+        msg.push(format!("{skipped} pattern(s) could not be read and were left out."));
+    }
+    if msg.is_empty() {
+        // e.g. a setting written twice: the last one counts, nothing else was lost
+        msg.push("The settings file had a small error (for example a setting written twice); it was repaired, nothing was lost.".into());
+    }
+    (c, Some(msg.join(" ")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tolerant_parse() {
+        let good = serde_json::to_string(&GlobalConfig { author_name: "Igor".into(), ..Default::default() }).unwrap();
+        let (c, w) = parse_config(&good);
+        assert!(w.is_none());
+        assert_eq!(c.author_name, "Igor");
+        // duplicated key: last one wins, the rest is kept
+        let dup = good.trim_end_matches('}').to_owned() + r#","share_admin_key":"abc"}"#;
+        let (c, w) = parse_config(&dup);
+        assert!(w.is_some());
+        assert_eq!(c.share_admin_key, "abc");
+        assert_eq!(c.author_name, "Igor");
+        // a wrong type resets only that setting
+        let bad = good.replace(r#""details_size":220.0"#, r#""details_size":"big""#);
+        let (c, w) = parse_config(&bad);
+        assert!(w.unwrap().contains("details_size"));
+        assert_eq!(c.author_name, "Igor");
+        // broken JSON: defaults
+        let (_, w) = parse_config("{ nope");
+        assert!(w.is_some());
+    }
 }
 
 fn write_json<T: Serialize>(path: &Path, v: &T) -> Result<(), String> {

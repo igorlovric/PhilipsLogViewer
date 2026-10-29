@@ -1,5 +1,10 @@
 # Changelog – Philips Log Viewer
 
+## 1.8.1 – 2026-10-29
+
+- Fix: a small error in PhilipsLogViewer.config (e.g. a setting written twice) no longer resets all settings – the file is repaired, invalid values fall back to their defaults one by one, and nothing else is lost
+- When the settings file had to be repaired, the program says what happened and keeps the original as PhilipsLogViewer.config.bak-<date>
+
 ## 1.8.0 – 2026-10-28
 
 - Shared patterns: share your patterns with colleagues and add theirs, right from the program – no account, no browser (☰ → Shared patterns)
