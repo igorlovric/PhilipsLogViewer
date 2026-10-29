@@ -12,6 +12,13 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
+        version: "1.9.1",
+        date: "2026-10-29",
+        changes: &[
+            "Information window: product names for the Philips ultrasound product numbers (Affiniti, EPIQ, ClearVue, Sparq, Lumify, InnoSight…); numbers not confirmed on philips.com are shown as “probably …”",
+        ],
+    },
+    Release {
         version: "1.9.0",
         date: "2026-10-29",
         changes: &[

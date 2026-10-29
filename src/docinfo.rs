@@ -62,12 +62,44 @@ fn words(s: &str) -> String {
     std::iter::once(first).chain(rest).collect::<Vec<_>>().join(" ")
 }
 
-/// product IDs seen in logs (the product name is also in MedicalSystem.xml)
-fn product_name(id: &str) -> Option<&'static str> {
-    Some(match id {
-        "795210" => "Affiniti 70",
-        _ => return None,
-    })
+/// Philips ultrasound product numbers (6 digits). One system can have several numbers
+/// (options, refurbished "Circular Edition"…).
+/// `true` = confirmed: seen in a log (MedicalSystem.xml) or as the product number on philips.com;
+/// `false` = from a collected list, not confirmed (shown as "probably …").
+const PRODUCTS: &[(&str, &str, bool)] = &[
+    ("795210", "Affiniti 70", true),
+    ("795119", "Affiniti 70 Circular Edition", true),
+    ("795208", "Affiniti 50", true),
+    ("795120", "Affiniti 50 Circular Edition", true),
+    ("795218", "Affiniti 30", true),
+    ("795121", "Affiniti 30", true),
+    ("795190", "Affiniti CVx", true),
+    ("795200", "EPIQ 7", true),
+    ("795117", "EPIQ 7 Circular Edition", true),
+    ("795204", "EPIQ 5", true),
+    ("795118", "EPIQ 5", true),
+    ("795098", "EPIQ Elite", true),
+    ("795125", "EPIQ Elite", true),
+    ("795231", "EPIQ CVx", true),
+    ("795232", "EPIQ CVxi", true),
+    ("795080", "ClearVue 350", true),
+    ("795094", "ClearVue 550", true),
+    ("795220", "ClearVue 650", true),
+    ("795226", "ClearVue 850", true),
+    ("795090", "Sparq", true),
+    ("795005", "Lumify", true),
+    ("795001", "InnoSight", true),
+    ("795201", "EPIQ 7", false),
+    ("795202", "EPIQ 7W", false),
+    ("795206", "EPIQ 5W", false),
+    ("795234", "EPIQ Elite", false),
+    ("795101", "Xperius", false),
+    ("795161", "Lumify (iOS)", false),
+];
+
+/// "Affiniti 70" or "probably EPIQ 7W"
+pub fn product_name(id: &str) -> Option<String> {
+    PRODUCTS.iter().find(|(n, _, _)| *n == id.trim()).map(|(_, name, sure)| if *sure { (*name).to_owned() } else { format!("probably {name}") })
 }
 
 /// "20260401115618" → "2026-04-01 11:56:18"
@@ -205,7 +237,8 @@ fn medical_system(doc: &XmlNode, info: &mut FileInfo) {
             add("Model", pi.attr("Model").unwrap_or("").to_owned());
         }
         add("Serial number", sc.attr("SerialNumber").unwrap_or("").to_owned());
-        add("Product ID", sc.attr("ProductID").unwrap_or("").to_owned());
+        let pid = sc.attr("ProductID").unwrap_or("");
+        add("Product ID", pid.to_owned());
         if let Some(m) = sc.attr("Modality") {
             add("Modality", modality(m).map(|x| format!("{x} ({m})")).unwrap_or_else(|| m.to_owned()));
         }
@@ -328,6 +361,9 @@ mod tests {
         let (t, _) = name_fields("US_UtilizationReports_795210_US225F1439_12.0.0.1280_20260401115037.zip");
         assert_eq!(t.as_deref(), Some("Utilization reports"));
         assert!(name_fields("SystemLogs.xml").0.is_none());
+        assert_eq!(product_name("795202").as_deref(), Some("probably EPIQ 7W"));
+        assert_eq!(product_name("795120").as_deref(), Some("Affiniti 50 Circular Edition"));
+        assert!(product_name("123456").is_none());
     }
     #[test]
     fn encrypted_detection() {

@@ -1,5 +1,9 @@
 # Changelog – Philips Log Viewer
 
+## 1.9.1 – 2026-10-29
+
+- Information window: product names for the Philips ultrasound product numbers (Affiniti, EPIQ, ClearVue, Sparq, Lumify, InnoSight…); numbers not confirmed on philips.com are shown as “probably …”
+
 ## 1.9.0 – 2026-10-29
 
 - Encrypted Philips files (e.g. ultrasound transducer tests, .enc) open an information window instead of an error: content, modality, product, serial number, software version, date and time from the file name, and a note that the file is encrypted and needs the Philips service tools
