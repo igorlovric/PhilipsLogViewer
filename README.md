@@ -68,6 +68,9 @@ puts the new one in its place and starts it with the same log (the `.old` file i
 - **CT log databases** (`Log_Database_Export_*.mdb`): open them like any log (also from inside a ZIP). Event type "System Error" is shown as Error, the error code becomes the Event ID, and the key = value details of every event are shown as a table.
 - **Code dictionary** (☰ → Codes): click an error row → "📘 Describe code…" (or right-click a row) and write what the code means. The description is shown next to the code in the table and in the details, search finds it, and it is stored in the global config, so colleagues get it too. The Codes window also lists the error / warning codes of the current log that have no description yet.
 - **Charts** (☰ → Charts): every numeric value found in the event details (e.g. CT HeatCapacity: HeatStorage, HV, tube temperatures; Scan Parameter: kV, mA; Scan Finished: CTDIvol, DLP; DMS Temperature; Azurion DVI grabber temperatures; generator load level) can be shown over time. All charts share the time axis (wheel = zoom, drag = pan, double-click = reset); clicking a point shows that event in the table. The chosen values are remembered for the next log.
+- **Files that are not event logs**: an encrypted Philips file (e.g. an ultrasound `US_TransducerTest_….enc`) opens an information window with what the file name tells
+  (content, modality, product ID, serial number, software version, date and time) and a note that it is encrypted and can only be read with the Philips service tools.
+  An archive without an event log (e.g. ultrasound `US_UtilizationReports_….zip`) shows the system data from `MedicalSystem.xml` (product, model, serial number, software, institution, hardware and software parts) and buttons that open its PDF reports.
 - **System info** (☰ → System): product, versions, serial number, site, installed software, hardware and licenses from the log header.
 - Only XML files that contain `<Event>` records are loaded into the main table; the other XML files in the ZIP are available under ☰ → Files in ZIP.
 - **Columns** (☰ → Settings, or right-click the table header): each kind of log (Azurion, CombiDiagnost, CT database, trace / text logs…) can have its own columns; kinds without their own choice use the default set. Columns that are empty in the current log are hidden automatically.
@@ -137,5 +140,6 @@ Up to version 1.7.0 the file was called `philips-log-viewer.config.json`; a file
 | `src/timeline.rs` | timeline |
 | `src/patterns.rs` | pattern definition and recognition |
 | `src/theme.rs` | colors |
+| `src/docinfo.rs`, `src/info_ui.rs` | information window for encrypted files and archives without an event log |
 | `src/colors_ui.rs` | Settings → Colors (row color per event category, selected row) |
 | `src/menu_ui.rs` | ☰ menu, Settings → Table columns, merging patterns |

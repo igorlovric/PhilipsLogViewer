@@ -92,7 +92,7 @@ fn fixed<R>(ui: &mut egui::Ui, w: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> 
     .inner
 }
 
-fn open_with_system(path: &Path) -> std::io::Result<()> {
+pub(super) fn open_with_system(path: &Path) -> std::io::Result<()> {
     #[cfg(windows)]
     {
         std::process::Command::new("explorer").arg(path).spawn().map(|_| ())
@@ -181,7 +181,7 @@ impl App {
                 log.sysinfo = sysinfo;
                 Ok(log)
             })();
-            let _ = tx.send(r);
+            let _ = tx.send(r.map(Loaded::Log));
             ctx2.request_repaint();
         });
         self.show_files = false;
@@ -341,6 +341,7 @@ impl App {
             self.show_files = false;
         }
         match act {
+            Some(Act::View(e)) | Some(Act::Table(e)) if self.entry_info(&e) => {}
             Some(Act::View(e)) => self.open_entry_viewer(ctx, e),
             Some(Act::Table(e)) => self.open_entry_table(ctx, e),
             Some(Act::External(e)) => self.entry_external(ctx, &e),
