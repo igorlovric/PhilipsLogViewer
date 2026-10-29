@@ -12,6 +12,15 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
+        version: "1.9.0",
+        date: "2026-10-29",
+        changes: &[
+            "Encrypted Philips files (e.g. ultrasound transducer tests, .enc) open an information window instead of an error: content, modality, product, serial number, software version, date and time from the file name, and a note that the file is encrypted and needs the Philips service tools",
+            "Archives without an event log (e.g. ultrasound utilization reports) open an information window: product, model, serial number, software, institution from MedicalSystem.xml, the hardware and software parts, and buttons that open the PDF reports",
+            "Files in ZIP: an encrypted file shows the same information window when clicked",
+        ],
+    },
+    Release {
         version: "1.8.1",
         date: "2026-10-29",
         changes: &[

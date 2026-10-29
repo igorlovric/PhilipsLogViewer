@@ -369,7 +369,7 @@ pub fn is_zip(path: &Path) -> bool {
 }
 
 /// Does this XML (first 512 KB) look like an event log?
-fn looks_like_events<R: Read>(r: R) -> bool {
+pub fn looks_like_events<R: Read>(r: R) -> bool {
     let mut head = Vec::with_capacity(1 << 19);
     let _ = r.take(1 << 19).read_to_end(&mut head);
     let find = |n: &[u8]| head.windows(n.len()).any(|w| w == n);

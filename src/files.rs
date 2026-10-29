@@ -13,6 +13,7 @@ pub fn describe(path: &str) -> Option<&'static str> {
     let full = path.to_ascii_lowercase();
     let starts = |p: &str| n.starts_with(p);
     Some(match () {
+        _ if n.ends_with(".enc") => "Encrypted file – readable only with the Philips service tools",
         _ if n == "systemlogs.xml" => "System event log",
         _ if n == "gxrsids.xml" => "System identification: software / hardware versions, licenses",
         _ if n == "exportedsetupregistry.xml" => "Exported setup registry (system configuration)",

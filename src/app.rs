@@ -12,6 +12,8 @@ mod colors_ui;
 mod update_ui;
 #[path = "share_ui.rs"]
 mod share_ui;
+#[path = "info_ui.rs"]
+mod info_ui;
 
 use crate::config::*;
 use crate::model::*;
@@ -191,8 +193,14 @@ impl TextFilter {
 
 // ------------------------------------------------------------------ app
 
+/// what a background load produced: an event log, or information about a file that is not one
+enum Loaded {
+    Log(LogData),
+    Info(crate::docinfo::FileInfo),
+}
+
 struct Loading {
-    rx: Receiver<Result<LogData, String>>,
+    rx: Receiver<Result<Loaded, String>>,
     progress: Arc<Progress>,
     name: String,
 }
@@ -292,6 +300,8 @@ pub struct App {
     upd: update_ui::UpdateState,
     /// problem with the settings file found at startup
     cfg_warning: Option<String>,
+    /// info window for an encrypted file / archive without an event log
+    file_info: Option<crate::docinfo::FileInfo>,
     share: share_ui::ShareState,
     charts: Option<charts::ChartState>,
     charts_filter: String,
@@ -372,6 +382,7 @@ impl App {
             cfg_save_due: None,
             upd: Default::default(),
             cfg_warning: None,
+            file_info: None,
             share: Default::default(),
             charts: None,
             charts_filter: String::new(),
@@ -556,7 +567,10 @@ impl App {
             self.save_settings();
         }
         std::thread::spawn(move || {
-            let r = parser::load(&path, p2);
+            let r = match crate::docinfo::inspect_path(&path) {
+                Some(info) => Ok(Loaded::Info(info)),
+                None => parser::load(&path, p2).map(Loaded::Log),
+            };
             let _ = tx.send(r);
             ctx2.request_repaint();
         });
@@ -565,7 +579,7 @@ impl App {
     }
 
     fn open_dialog(&mut self, ctx: &egui::Context) {
-        let mut d = rfd::FileDialog::new().add_filter("Log (XML, ZIP, MDB)", &["xml", "zip", "mdb", "accdb"]).add_filter("All files", &["*"]);
+        let mut d = rfd::FileDialog::new().add_filter("Log (XML, ZIP, MDB, ENC)", &["xml", "zip", "mdb", "accdb", "enc"]).add_filter("All files", &["*"]);
         if let Some(dir) = &self.cfg.last_dir {
             d = d.set_directory(dir);
         }
@@ -2507,7 +2521,12 @@ impl eframe::App for App {
         // finished loading?
         if let Some(l) = &self.loading {
             match l.rx.try_recv() {
-                Ok(Ok(log)) => {
+                Ok(Ok(Loaded::Info(info))) => {
+                    // the log that is open (if any) stays
+                    self.loading = None;
+                    self.file_info = Some(info);
+                }
+                Ok(Ok(Loaded::Log(log))) => {
                     self.loading = None;
                     self.on_loaded(log);
                     let n = self.total_occurrences();
@@ -2579,6 +2598,7 @@ impl eframe::App for App {
         self.update_dialog(ctx);
         self.poll_share(ctx);
         self.share_windows(ctx);
+        self.file_info_window(ctx);
         if let Some(w) = self.cfg_warning.clone() {
             let pal = self.pal;
             let mut close = false;

@@ -1,5 +1,11 @@
 # Changelog – Philips Log Viewer
 
+## 1.9.0 – 2026-10-29
+
+- Encrypted Philips files (e.g. ultrasound transducer tests, .enc) open an information window instead of an error: content, modality, product, serial number, software version, date and time from the file name, and a note that the file is encrypted and needs the Philips service tools
+- Archives without an event log (e.g. ultrasound utilization reports) open an information window: product, model, serial number, software, institution from MedicalSystem.xml, the hardware and software parts, and buttons that open the PDF reports
+- Files in ZIP: an encrypted file shows the same information window when clicked
+
 ## 1.8.1 – 2026-10-29
 
 - Fix: a small error in PhilipsLogViewer.config (e.g. a setting written twice) no longer resets all settings – the file is repaired, invalid values fall back to their defaults one by one, and nothing else is lost
