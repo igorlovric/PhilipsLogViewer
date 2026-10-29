@@ -290,6 +290,8 @@ pub struct App {
     /// global config: save shortly after the last change (color pickers change every frame)
     cfg_save_due: Option<f64>,
     upd: update_ui::UpdateState,
+    /// problem with the settings file found at startup
+    cfg_warning: Option<String>,
     share: share_ui::ShareState,
     charts: Option<charts::ChartState>,
     charts_filter: String,
@@ -369,6 +371,7 @@ impl App {
             new_category: String::new(),
             cfg_save_due: None,
             upd: Default::default(),
+            cfg_warning: None,
             share: Default::default(),
             charts: None,
             charts_filter: String::new(),
@@ -379,6 +382,7 @@ impl App {
                 cc.egui_ctx.load_texture("logo", img, egui::TextureOptions::LINEAR)
             }),
         };
+        app.cfg_warning = app.cfg.load_warning.take();
         app.apply_colors();
         crate::update::cleanup();
         if app.cfg.check_updates {
@@ -2575,6 +2579,23 @@ impl eframe::App for App {
         self.update_dialog(ctx);
         self.poll_share(ctx);
         self.share_windows(ctx);
+        if let Some(w) = self.cfg_warning.clone() {
+            let pal = self.pal;
+            let mut close = false;
+            egui::Modal::new(Id::new("cfg_warning")).show(ctx, |ui| {
+                ui.set_width(520.0);
+                ui.heading("⚠  Settings file");
+                ui.add_space(4.0);
+                ui.label(RichText::new(w).color(pal.text));
+                ui.add_space(8.0);
+                if ui.button("OK").clicked() {
+                    close = true;
+                }
+            });
+            if close {
+                self.cfg_warning = None;
+            }
+        }
         if std::mem::take(&mut self.pending_new_pattern) {
             self.new_pattern_from_selection(ctx);
         }

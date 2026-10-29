@@ -12,6 +12,14 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
+        version: "1.8.1",
+        date: "2026-10-29",
+        changes: &[
+            "Fix: a small error in PhilipsLogViewer.config (e.g. a setting written twice) no longer resets all settings – the file is repaired, invalid values fall back to their defaults one by one, and nothing else is lost",
+            "When the settings file had to be repaired, the program says what happened and keeps the original as PhilipsLogViewer.config.bak-<date>",
+        ],
+    },
+    Release {
         version: "1.8.0",
         date: "2026-10-28",
         changes: &[
