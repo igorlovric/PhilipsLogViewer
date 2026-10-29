@@ -30,6 +30,8 @@ pub struct FileInfo {
     pub hardware: Vec<[String; 4]>,
     /// software parts: name, install date
     pub software: Vec<[String; 2]>,
+    /// product ID and name found in the file (MedicalSystem.xml), to be remembered
+    pub learn: Option<(String, String)>,
 }
 
 fn modality(code: &str) -> Option<&'static str> {
@@ -62,44 +64,59 @@ fn words(s: &str) -> String {
     std::iter::once(first).chain(rest).collect::<Vec<_>>().join(" ")
 }
 
-/// Philips ultrasound product numbers (6 digits). One system can have several numbers
-/// (options, refurbished "Circular Edition"…).
-/// `true` = confirmed: seen in a log (MedicalSystem.xml) or as the product number on philips.com;
-/// `false` = from a collected list, not confirmed (shown as "probably …").
-const PRODUCTS: &[(&str, &str, bool)] = &[
-    ("795210", "Affiniti 70", true),
-    ("795119", "Affiniti 70 Circular Edition", true),
-    ("795208", "Affiniti 50", true),
-    ("795120", "Affiniti 50 Circular Edition", true),
-    ("795218", "Affiniti 30", true),
-    ("795121", "Affiniti 30", true),
-    ("795190", "Affiniti CVx", true),
-    ("795200", "EPIQ 7", true),
-    ("795117", "EPIQ 7 Circular Edition", true),
-    ("795204", "EPIQ 5", true),
-    ("795118", "EPIQ 5", true),
-    ("795098", "EPIQ Elite", true),
-    ("795125", "EPIQ Elite", true),
-    ("795231", "EPIQ CVx", true),
-    ("795232", "EPIQ CVxi", true),
-    ("795080", "ClearVue 350", true),
-    ("795094", "ClearVue 550", true),
-    ("795220", "ClearVue 650", true),
-    ("795226", "ClearVue 850", true),
-    ("795090", "Sparq", true),
-    ("795005", "Lumify", true),
-    ("795001", "InnoSight", true),
-    ("795201", "EPIQ 7", false),
-    ("795202", "EPIQ 7W", false),
-    ("795206", "EPIQ 5W", false),
-    ("795234", "EPIQ Elite", false),
-    ("795101", "Xperius", false),
-    ("795161", "Lumify (iOS)", false),
+/// Philips ultrasound product numbers (6 digits), each confirmed in a log (MedicalSystem.xml) or as the
+/// product number on philips.com. One system can have several numbers (options, "Circular Edition"…).
+/// Numbers learned from opened logs (config "product_names") are used in addition.
+const PRODUCTS: &[(&str, &str)] = &[
+    ("795210", "Affiniti 70"),
+    ("795119", "Affiniti 70 Circular Edition"),
+    ("795208", "Affiniti 50"),
+    ("795120", "Affiniti 50 Circular Edition"),
+    ("795218", "Affiniti 30"),
+    ("795121", "Affiniti 30"),
+    ("795190", "Affiniti CVx"),
+    ("795200", "EPIQ 7"),
+    ("795117", "EPIQ 7 Circular Edition"),
+    ("795204", "EPIQ 5"),
+    ("795118", "EPIQ 5"),
+    ("795098", "EPIQ Elite"),
+    ("795125", "EPIQ Elite"),
+    ("795231", "EPIQ CVx"),
+    ("795232", "EPIQ CVxi"),
+    ("795080", "ClearVue 350"),
+    ("795094", "ClearVue 550"),
+    ("795220", "ClearVue 650"),
+    ("795226", "ClearVue 850"),
+    ("795090", "Sparq"),
+    ("795005", "Lumify"),
+    ("795001", "InnoSight"),
 ];
 
-/// "Affiniti 70" or "probably EPIQ 7W"
 pub fn product_name(id: &str) -> Option<String> {
-    PRODUCTS.iter().find(|(n, _, _)| *n == id.trim()).map(|(_, name, sure)| if *sure { (*name).to_owned() } else { format!("probably {name}") })
+    PRODUCTS.iter().find(|(n, _)| *n == id.trim()).map(|(_, name)| (*name).to_owned())
+}
+
+/// "795210 (Affiniti 70G)": a name learned from an opened log wins over the built-in table
+pub fn product_label(id: &str, learned: &std::collections::BTreeMap<String, String>) -> String {
+    let id = id.trim();
+    match (learned.get(id), product_name(id)) {
+        (Some(l), Some(b)) if l.eq_ignore_ascii_case(&b) => format!("{id} ({b})"),
+        (Some(l), _) => format!("{id} ({l} – learned from a log)"),
+        (None, Some(b)) => format!("{id} ({b})"),
+        (None, None) => id.to_owned(),
+    }
+}
+
+/// puts the best known product name next to the product ID
+pub fn relabel(info: &mut FileInfo, learned: &std::collections::BTreeMap<String, String>) {
+    for (k, v) in &mut info.rows {
+        if k == "Product ID" {
+            let id: String = v.chars().take_while(|c| c.is_ascii_alphanumeric()).collect();
+            if !id.is_empty() {
+                *v = product_label(&id, learned);
+            }
+        }
+    }
 }
 
 /// "20260401115618" → "2026-04-01 11:56:18"
@@ -239,6 +256,12 @@ fn medical_system(doc: &XmlNode, info: &mut FileInfo) {
         add("Serial number", sc.attr("SerialNumber").unwrap_or("").to_owned());
         let pid = sc.attr("ProductID").unwrap_or("");
         add("Product ID", pid.to_owned());
+        if let Some(pi) = text_of(sc, &["ProductInfo"]) {
+            let name = pi.attr("Model").filter(|m| !m.trim().is_empty()).or(pi.attr("ProductFamily")).unwrap_or("");
+            if !pid.trim().is_empty() && !name.trim().is_empty() {
+                info.learn = Some((pid.trim().to_owned(), name.trim().to_owned()));
+            }
+        }
         if let Some(m) = sc.attr("Modality") {
             add("Modality", modality(m).map(|x| format!("{x} ({m})")).unwrap_or_else(|| m.to_owned()));
         }
@@ -361,9 +384,16 @@ mod tests {
         let (t, _) = name_fields("US_UtilizationReports_795210_US225F1439_12.0.0.1280_20260401115037.zip");
         assert_eq!(t.as_deref(), Some("Utilization reports"));
         assert!(name_fields("SystemLogs.xml").0.is_none());
-        assert_eq!(product_name("795202").as_deref(), Some("probably EPIQ 7W"));
+        assert!(product_name("795202").is_none());
         assert_eq!(product_name("795120").as_deref(), Some("Affiniti 50 Circular Edition"));
         assert!(product_name("123456").is_none());
+        let mut learned = std::collections::BTreeMap::new();
+        assert_eq!(product_label("795210", &learned), "795210 (Affiniti 70)");
+        learned.insert("795210".to_owned(), "Affiniti 70G".to_owned());
+        learned.insert("799999".to_owned(), "EPIQ Test".to_owned());
+        assert_eq!(product_label("795210", &learned), "795210 (Affiniti 70G – learned from a log)");
+        assert_eq!(product_label("799999", &learned), "799999 (EPIQ Test – learned from a log)");
+        assert_eq!(product_label("111111", &learned), "111111");
     }
     #[test]
     fn encrypted_detection() {

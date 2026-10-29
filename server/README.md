@@ -58,6 +58,13 @@ server/
 
 For testing another server: `"share_server": "https://test.example.com"` and `"share_api_key": "…"` in `PhilipsLogViewer.config`.
 
+## Updating the server
+
+```bash
+cd /var/www/plv && git pull
+mysql -u root -p plv < server/schema.sql   # adds new tables, existing data stays (CREATE TABLE IF NOT EXISTS)
+```
+
 ## API
 
 All requests: header `X-PLV-Key: <api key>`; writes also `X-PLV-Owner: <owner key>`
@@ -70,6 +77,8 @@ Answers are JSON, `{"ok":true,…}` or `{"ok":false,"error":"…"}`.
 | `GET /v1/patterns[?since=REV]` | all patterns (or changed after REV), withdrawn ones with `"deleted":true`; `mine` = belongs to the sent owner key |
 | `POST /v1/patterns` | `{"patterns":[{"uid","author","data"}]}` – create or update (only the owner); `data` = pattern JSON as text, `checksum` = its SHA-256 |
 | `DELETE /v1/patterns/{uid}` | withdraw (owner, or admin with `X-PLV-Admin`) |
+| `GET /v1/products` | product number → name, learned by the programs from opened logs |
+| `POST /v1/products` | `{"products":[{"id","name"}]}` – add / update (history in `plv_product_history`) |
 
 Nothing is ever deleted physically: withdrawn patterns keep their data, and `plv_history` holds every version
 (create / update / withdraw / restore, with IP and time), so anything can be looked up or restored by hand.

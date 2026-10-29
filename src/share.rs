@@ -48,8 +48,12 @@ pub struct Upload {
 
 pub struct Job {
     pub ep: Endpoint,
+    /// false = only the product names (pattern sync switched off)
+    pub patterns: bool,
     pub uploads: Vec<Upload>,
     pub withdraw: Vec<String>,
+    /// product number → name learned locally, not sent yet
+    pub products: Vec<(String, String)>,
 }
 
 pub enum UploadStatus {
@@ -66,6 +70,10 @@ pub struct SyncResult {
     pub withdrawn: Vec<String>,
     pub remote: Option<Vec<RemotePattern>>,
     pub error: Option<String>,
+    /// the learned product names were sent
+    pub products_sent: bool,
+    /// all product names known to the server
+    pub products: Option<Vec<(String, String)>>,
 }
 
 /// file with the secret key that identifies this installation as the owner of its patterns.
@@ -147,9 +155,31 @@ fn upload(ep: &Endpoint, ups: &[Upload]) -> Result<Vec<(String, UploadStatus)>, 
     Ok(out)
 }
 
-/// withdraws, uploads, then fetches the whole library
+/// sends the locally learned product names, then fetches all of them (errors are ignored: silent)
+fn sync_products(ep: &Endpoint, local: &[(String, String)], res: &mut SyncResult) {
+    if !local.is_empty() {
+        let body = serde_json::json!({"products": local.iter().map(|(id, name)| serde_json::json!({"id": id, "name": name})).collect::<Vec<_>>()});
+        res.products_sent = req(ep, "POST", "products").send_json(body).is_ok();
+    }
+    if let Ok(resp) = req(ep, "GET", "products").call() {
+        if let Ok(v) = serde_json::from_reader::<_, serde_json::Value>(resp.into_reader()) {
+            let list = v["products"].as_array().cloned().unwrap_or_default();
+            res.products = Some(
+                list.iter()
+                    .filter_map(|p| Some((p["id"].as_str()?.to_owned(), p["name"].as_str()?.to_owned())))
+                    .collect(),
+            );
+        }
+    }
+}
+
+/// product names first (always), then the patterns: withdraws, uploads, the whole library
 pub fn run(job: Job) -> SyncResult {
     let mut res = SyncResult::default();
+    sync_products(&job.ep, &job.products, &mut res);
+    if !job.patterns {
+        return res;
+    }
     for uid in &job.withdraw {
         match withdraw(&job.ep, uid) {
             Ok(()) => res.withdrawn.push(uid.clone()),

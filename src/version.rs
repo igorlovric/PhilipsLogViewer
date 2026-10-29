@@ -12,10 +12,12 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
-        version: "1.9.1",
+        version: "1.10.0",
         date: "2026-10-29",
         changes: &[
-            "Information window: product names for the Philips ultrasound product numbers (Affiniti, EPIQ, ClearVue, Sparq, Lumify, InnoSight…); numbers not confirmed on philips.com are shown as “probably …”",
+            "Information window: product names for the Philips ultrasound product numbers confirmed on philips.com (Affiniti, EPIQ, ClearVue, Sparq, Lumify, InnoSight, Circular Editions)",
+            "The program learns product number → name from every log it opens (MedicalSystem.xml, log headers) and shares it silently with everyone through the server – an encrypted file then shows the name even if you never opened a log of that system",
+            "Product names are synced at every start, also when pattern sharing is switched off",
         ],
     },
     Release {

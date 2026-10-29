@@ -71,6 +71,7 @@ puts the new one in its place and starts it with the same log (the `.old` file i
 - **Files that are not event logs**: an encrypted Philips file (e.g. an ultrasound `US_TransducerTest_….enc`) opens an information window with what the file name tells
   (content, modality, product ID, serial number, software version, date and time) and a note that it is encrypted and can only be read with the Philips service tools.
   An archive without an event log (e.g. ultrasound `US_UtilizationReports_….zip`) shows the system data from `MedicalSystem.xml` (product, model, serial number, software, institution, hardware and software parts) and buttons that open its PDF reports.
+  Product numbers are shown with their name: a built-in list (confirmed on philips.com) plus everything the program learns from opened logs; learned names are shared silently with everyone through the server.
 - **System info** (☰ → System): product, versions, serial number, site, installed software, hardware and licenses from the log header.
 - Only XML files that contain `<Event>` records are loaded into the main table; the other XML files in the ZIP are available under ☰ → Files in ZIP.
 - **Columns** (☰ → Settings, or right-click the table header): each kind of log (Azurion, CombiDiagnost, CT database, trace / text logs…) can have its own columns; kinds without their own choice use the default set. Columns that are empty in the current log are hidden automatically.
