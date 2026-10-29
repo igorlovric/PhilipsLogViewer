@@ -402,9 +402,8 @@ impl App {
         if app.ensure_uids() {
             let _ = app.save_cfg();
         }
-        if app.cfg.share_sync {
-            app.start_share_sync(false);
-        }
+        // always: product names are synced even when pattern sync is switched off
+        app.start_share_sync(false);
         // first start of a new version: show what's new
         if app.cfg.app_version != crate::version::VERSION {
             app.show_about = true;
@@ -588,7 +587,30 @@ impl App {
         }
     }
 
+    /// remembers product ID → name from a log, for files that carry only the number
+    pub(super) fn learn_product(&mut self, id: &str, name: &str) {
+        let (id, name) = (id.trim(), name.trim());
+        if id.is_empty() || name.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return;
+        }
+        if self.cfg.product_names.get(id).map(String::as_str) != Some(name) {
+            self.cfg.product_names.insert(id.to_owned(), name.to_owned());
+            if !self.cfg.product_pending.iter().any(|p| p == id) {
+                self.cfg.product_pending.push(id.to_owned());
+            }
+            self.save_settings();
+            // share it with everyone right away, silently
+            self.share.due = Some(0.0);
+        }
+    }
+
     fn on_loaded(&mut self, log: LogData) {
+        {
+            let i = &log.info;
+            let name = if i.model.trim().is_empty() || i.model.trim() == i.family.trim() { i.family.clone() } else { i.model.clone() };
+            let id = i.product_id.clone();
+            self.learn_product(&id, &name);
+        }
         let n = log.events.len();
         let mut lists: HashMap<Col, Vec<(Sym, usize)>> = HashMap::new();
         for c in Col::ALL.iter().copied().filter(|c| c.categorical()) {
@@ -2521,9 +2543,13 @@ impl eframe::App for App {
         // finished loading?
         if let Some(l) = &self.loading {
             match l.rx.try_recv() {
-                Ok(Ok(Loaded::Info(info))) => {
+                Ok(Ok(Loaded::Info(mut info))) => {
                     // the log that is open (if any) stays
                     self.loading = None;
+                    if let Some((id, name)) = info.learn.take() {
+                        self.learn_product(&id, &name);
+                    }
+                    crate::docinfo::relabel(&mut info, &self.cfg.product_names);
                     self.file_info = Some(info);
                 }
                 Ok(Ok(Loaded::Log(log))) => {

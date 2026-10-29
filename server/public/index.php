@@ -6,6 +6,8 @@
  *   GET    /v1/patterns[?since=REV]      all patterns (or those changed after REV), incl. withdrawn ones
  *   POST   /v1/patterns                  {"patterns":[{"uid","author","data"}]}  create / update (owner only)
  *   DELETE /v1/patterns/{uid}            withdraw (owner or admin)
+ *   GET    /v1/products                  product number → name, learned from logs
+ *   POST   /v1/products                  {"products":[{"id","name"}]}  add / update
  *
  * Headers: X-PLV-Key (API key), X-PLV-Owner (owner key of the installation, >= 32 chars),
  *          X-PLV-Admin (optional admin key).
@@ -175,6 +177,14 @@ if (preg_match('#^/v1/patterns/([0-9a-f-]{36})$#', $path, $m) && $method === 'DE
     withdraw_pattern($cfg, $m[1]);
 }
 
+if ($path === '/v1/products' && $method === 'GET') {
+    list_products($cfg);
+}
+
+if ($path === '/v1/products' && $method === 'POST') {
+    save_products($cfg);
+}
+
 fail(404, 'unknown request');
 
 // ------------------------------------------------------------------ handlers
@@ -318,4 +328,53 @@ function withdraw_pattern(array $cfg, string $uid): void
     history($db, $uid, $rev, 'withdraw', !$isOwner, $cur['author'], $cur['checksum'], $cur['data']);
     $db->commit();
     out(200, ['ok' => true, 'status' => 'withdrawn', 'rev' => $rev]);
+}
+
+function list_products(array $cfg): void
+{
+    $db = db($cfg);
+    rate_limit($db, 'r', (int)($cfg['rate_read'] ?? 120));
+    $list = [];
+    foreach ($db->query('SELECT product_id, name, updated_at FROM plv_products ORDER BY product_id') as $r) {
+        $list[] = ['id' => $r['product_id'], 'name' => $r['name'], 'updated_at' => $r['updated_at']];
+    }
+    out(200, ['ok' => true, 'products' => $list]);
+}
+
+function save_products(array $cfg): void
+{
+    $db = db($cfg);
+    rate_limit($db, 'w', (int)($cfg['rate_write'] ?? 60));
+    $body = json_decode((string)file_get_contents('php://input', false, null, 0, 262144), true);
+    if (!is_array($body) || !isset($body['products']) || !is_array($body['products'])) {
+        fail(400, 'expected {"products":[...]}');
+    }
+    if (count($body['products']) > 500) {
+        fail(413, 'at most 500 products per request');
+    }
+    $results = [];
+    foreach ($body['products'] as $p) {
+        $id = is_array($p) ? trim((string)($p['id'] ?? '')) : '';
+        $name = is_array($p) ? trim((string)($p['name'] ?? '')) : '';
+        // product numbers are short codes (Philips 6NC: six digits); names are plain text
+        if (!preg_match('/^[0-9A-Za-z]{4,16}$/', $id) || $name === '' || mb_strlen($name) > 100 || preg_match('/[\x00-\x1f<>]/', $name)) {
+            $results[] = ['id' => $id, 'status' => 'invalid'];
+            continue;
+        }
+        $st = $db->prepare('SELECT name FROM plv_products WHERE product_id = ?');
+        $st->execute([$id]);
+        $cur = $st->fetchColumn();
+        if ($cur === $name) {
+            $results[] = ['id' => $id, 'status' => 'unchanged'];
+            continue;
+        }
+        if ($cur === false) {
+            $db->prepare('INSERT INTO plv_products (product_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')->execute([$id, $name, now(), now()]);
+        } else {
+            $db->prepare('UPDATE plv_products SET name = ?, updated_at = ? WHERE product_id = ?')->execute([$name, now(), $id]);
+        }
+        $db->prepare('INSERT INTO plv_product_history (product_id, name, ip, created_at) VALUES (?, ?, ?, ?)')->execute([$id, $name, client_ip(), now()]);
+        $results[] = ['id' => $id, 'status' => $cur === false ? 'created' : 'updated'];
+    }
+    out(200, ['ok' => true, 'results' => $results]);
 }

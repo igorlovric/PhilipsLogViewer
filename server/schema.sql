@@ -47,3 +47,22 @@ CREATE TABLE IF NOT EXISTS plv_rate (
     hits    INT UNSIGNED NOT NULL,
     PRIMARY KEY (ip, kind, minute)
 ) ENGINE=InnoDB;
+
+-- product number → product name, learned by the program from opened logs and shared with everyone
+CREATE TABLE IF NOT EXISTS plv_products (
+    product_id  VARCHAR(16)  NOT NULL,
+    name        VARCHAR(100) NOT NULL,
+    created_at  DATETIME     NOT NULL,
+    updated_at  DATETIME     NOT NULL,
+    PRIMARY KEY (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS plv_product_history (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    product_id  VARCHAR(16)     NOT NULL,
+    name        VARCHAR(100)    NOT NULL,
+    ip          VARCHAR(45)     NOT NULL DEFAULT '',
+    created_at  DATETIME        NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_product (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -14,7 +14,8 @@ impl App {
         let Ok(bytes) = parser::read_zip_entry(&zip, entry.index) else { return false };
         let head = &bytes[..bytes.len().min(256 * 1024)];
         match crate::docinfo::inspect_entry(&zip, entry, head) {
-            Some(info) => {
+            Some(mut info) => {
+                crate::docinfo::relabel(&mut info, &self.cfg.product_names);
                 self.file_info = Some(info);
                 true
             }

@@ -87,6 +87,12 @@ pub struct GlobalConfig {
     /// shared patterns of colleagues already seen in the "Available" list
     #[serde(default)]
     pub share_seen: Vec<String>,
+    /// product ID → product name, learned from opened logs (shown for files that only carry the number)
+    #[serde(default)]
+    pub product_names: BTreeMap<String, String>,
+    /// product numbers learned here that the server does not have yet
+    #[serde(default)]
+    pub product_pending: Vec<String>,
     /// problem found while reading the file (shown once at startup, not saved)
     #[serde(skip)]
     pub load_warning: Option<String>,
@@ -170,6 +176,8 @@ impl Default for GlobalConfig {
             share_admin_key: String::new(),
             share_pending_withdraw: vec![],
             share_seen: vec![],
+            product_names: BTreeMap::new(),
+            product_pending: vec![],
             load_warning: None,
         }
     }

@@ -83,7 +83,15 @@ impl App {
             .filter(|p| p.needs_upload())
             .map(|p| Upload { uid: p.uid.clone(), author: author.clone(), data: p.content_json(), local_checksum: p.checksum() })
             .collect();
-        let job = Job { ep: self.endpoint(), uploads, withdraw: self.cfg.share_pending_withdraw.clone() };
+        let patterns = self.cfg.share_sync || manual;
+        let products = self.cfg.product_pending.iter().filter_map(|id| self.cfg.product_names.get(id).map(|n| (id.clone(), n.clone()))).collect();
+        let job = Job {
+            ep: self.endpoint(),
+            patterns,
+            uploads: if patterns { uploads } else { vec![] },
+            withdraw: if patterns { self.cfg.share_pending_withdraw.clone() } else { vec![] },
+            products,
+        };
         let (tx, rx) = channel();
         std::thread::spawn(move || {
             let _ = tx.send(share::run(job));
@@ -125,6 +133,23 @@ impl App {
         let mut changed = false;
         let mut content_changed = false;
         let mut msgs: Vec<String> = Vec::new();
+
+        // product names: silent in both directions
+        if res.products_sent {
+            self.cfg.product_pending.clear();
+            changed = true;
+        }
+        if let Some(list) = res.products {
+            for (id, name) in list {
+                if self.cfg.product_pending.contains(&id) {
+                    continue;
+                }
+                if self.cfg.product_names.get(&id) != Some(&name) {
+                    self.cfg.product_names.insert(id, name);
+                    changed = true;
+                }
+            }
+        }
 
         // uploads
         let mut uploaded = 0;
