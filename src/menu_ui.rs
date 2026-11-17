@@ -259,7 +259,7 @@ impl App {
                             for row in 0..half {
                                 for c in [Col::ALL.get(row), Col::ALL.get(row + half)].into_iter().flatten() {
                                     let mut on = cols.contains(c);
-                                    let name = if *c == Col::Bookmark { "🔖 Bookmark" } else { c.title() };
+                                    let name = if *c == Col::Bookmark { "⚑ Bookmark" } else { c.title() };
                                     let mut t = RichText::new(name);
                                     if is_current && self.empty_cols.contains(c) {
                                         t = RichText::new(format!("{name}   (empty in this log)")).color(pal.text_weak);

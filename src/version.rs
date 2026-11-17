@@ -12,6 +12,15 @@ pub struct Release {
 /// Newest first. Add an entry here (and bump the version in Cargo.toml) for every release.
 pub const CHANGELOG: &[Release] = &[
     Release {
+        version: "1.10.1",
+        date: "2026-11-17",
+        changes: &[
+            "A double-click on a row no longer sets or removes a bookmark (it only selects the row); bookmarks: Ctrl+B, right-click → Bookmark, or the button in the details panel",
+            "New bookmark mark: a small waving flag in the table, ⚑ on the buttons",
+            "Files in ZIP: folders are shown as a tree, every sublevel indented further to the right",
+        ],
+    },
+    Release {
         version: "1.10.0",
         date: "2026-10-29",
         changes: &[

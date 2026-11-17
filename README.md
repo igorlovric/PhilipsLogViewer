@@ -75,7 +75,7 @@ puts the new one in its place and starts it with the same log (the `.old` file i
 - **System info** (☰ → System): product, versions, serial number, site, installed software, hardware and licenses from the log header.
 - Only XML files that contain `<Event>` records are loaded into the main table; the other XML files in the ZIP are available under ☰ → Files in ZIP.
 - **Columns** (☰ → Settings, or right-click the table header): each kind of log (Azurion, CombiDiagnost, CT database, trace / text logs…) can have its own columns; kinds without their own choice use the default set. Columns that are empty in the current log are hidden automatically.
-- **Bookmarks**: double-click a row or press Ctrl+B. Write a comment for the bookmark in the bottom panel. **📋 List & notes** shows all bookmarks with comments and notes for the whole log.
+- **Bookmarks** (⚑): select a row and press Ctrl+B, or right-click it → Bookmark (a double-click only selects the row). Write a comment for the bookmark in the bottom panel. **📋 List & notes** shows all bookmarks with comments and notes for the whole log.
 - **Shortcuts**: F8 / Shift+F8 next/previous warning-error · Ctrl+B bookmark · F2 next bookmark · Ctrl+C copies selected rows (for Excel) · Ctrl+A select all · arrows/PageUp/PageDown.
 - **Merge patterns** (☰ → Merge patterns…): choose a colleague's `PhilipsLogViewer.config` (or an exported pattern list). Every pattern is shown as *new*, *already in your library* or *same name but different steps*; you choose Add / Skip / Keep both / Replace mine. Your own patterns are never removed.
 - **Patterns**: select rows (Ctrl+click / Shift+click) → **➕ Add pattern** (or Ctrl+P, or right-click).
