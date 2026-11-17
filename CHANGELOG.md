@@ -1,5 +1,11 @@
 # Changelog – Philips Log Viewer
 
+## 1.10.1 – 2026-11-17
+
+- A double-click on a row no longer sets or removes a bookmark (it only selects the row); bookmarks: Ctrl+B, right-click → Bookmark, or the button in the details panel
+- New bookmark mark: a small waving flag in the table, ⚑ on the buttons
+- Files in ZIP: folders are shown as a tree, every sublevel indented further to the right
+
 ## 1.10.0 – 2026-10-29
 
 - Information window: product names for the Philips ultrasound product numbers confirmed on philips.com (Affiniti, EPIQ, ClearVue, Sparq, Lumify, InnoSight, Circular Editions)

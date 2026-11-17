@@ -245,26 +245,27 @@ impl App {
         let pal = self.pal;
         let Some(log) = &self.log else { return };
         let mut open = true;
-        enum Act {
-            View(ArchiveEntry),
-            Table(ArchiveEntry),
-            External(ArchiveEntry),
-            Save(ArchiveEntry),
-            Main,
-        }
         let mut act: Option<Act> = None;
         let current = log.entry.clone();
         let q = self.files_filter.trim().to_lowercase();
-        let mut groups: BTreeMap<String, Vec<&ArchiveEntry>> = BTreeMap::new();
+        // folder tree of the archive: every level is indented a bit more than the one above
+        let mut root = Dir::default();
+        let mut shown = 0usize;
         for e in &log.archive {
             if !q.is_empty() && !e.name.to_lowercase().contains(&q) && !files::describe(&e.name).is_some_and(|d| d.to_lowercase().contains(&q)) {
                 continue;
             }
-            let folder = e.name.rsplit_once('/').map(|(a, _)| a.to_owned()).unwrap_or_default();
-            groups.entry(folder).or_default().push(e);
+            let mut d = &mut root;
+            if let Some((folder, _)) = e.name.rsplit_once('/') {
+                for part in folder.split('/').filter(|p| !p.is_empty()) {
+                    d = d.dirs.entry(part.to_owned()).or_default();
+                }
+            }
+            d.files.push(e);
+            shown += 1;
         }
         let total: u64 = log.archive.iter().map(|e| e.size).sum();
-        let shown: usize = groups.values().map(|v| v.len()).sum();
+        let ctxf = FileRowCtx { current: current.as_deref(), pal: &pal, filtered: !q.is_empty() };
         egui::Window::new(RichText::new("📁  Files in this ZIP").strong())
             .open(&mut open)
             .default_size([960.0, 640.0])
@@ -282,58 +283,13 @@ impl App {
                 );
                 ui.separator();
                 egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                    for (folder, list) in &groups {
-                        let title = format!("📁 {}   ({})", if folder.is_empty() { "/" } else { folder.as_str() }, list.len());
-                        egui::CollapsingHeader::new(RichText::new(title).strong())
-                            .id_salt(("folder", folder))
-                            .default_open(list.len() <= 40)
-                            .open(if q.is_empty() { None } else { Some(true) })
-                            .show(ui, |ui| {
-                                egui::Grid::new(("files", folder)).striped(true).num_columns(4).spacing([12.0, 2.0]).show(ui, |ui| {
-                                    for e in list {
-                                        let name = e.file_name();
-                                        let is_current = current.as_deref() == Some(e.name.as_str()) || (current.is_none() && e.is_events);
-                                        let mut t = RichText::new(format!("{} {}", files::icon(name), name));
-                                        if is_current {
-                                            t = t.strong().color(pal.accent);
-                                        }
-                                        let r = fixed(ui, 360.0, |ui| ui.add(egui::Label::new(t).sense(Sense::click()).truncate())).on_hover_text(&e.name);
-                                        if r.clicked() {
-                                            act = Some(if e.is_events { Act::Main } else { Act::View((*e).clone()) });
-                                        }
-                                        fixed(ui, 64.0, |ui| ui.label(RichText::new(files::fmt_size(e.size)).color(pal.text_weak)));
-                                        let desc = if is_current {
-                                            "● shown in the table".to_owned()
-                                        } else if e.is_events {
-                                            "Event log (main table)".to_owned()
-                                        } else {
-                                            files::describe(&e.name).unwrap_or("").to_owned()
-                                        };
-                                        fixed(ui, 300.0, |ui| ui.add(egui::Label::new(RichText::new(desc).small().color(if is_current { pal.accent } else { pal.text_weak })).truncate()));
-                                        ui.horizontal(|ui| {
-                                            ui.spacing_mut().item_spacing.x = 2.0;
-                                            let binary = files::is_binary_name(&e.name);
-                                            if e.is_events {
-                                                if !is_current && ui.small_button("📊").on_hover_text("Back to the main event log").clicked() {
-                                                    act = Some(Act::Main);
-                                                }
-                                            } else if !binary && e.size > 0 && !e.name.to_ascii_lowercase().ends_with(".xml") && ui.small_button("📊").on_hover_text("Open as a table").clicked() {
-                                                act = Some(Act::Table((*e).clone()));
-                                            }
-                                            if !e.is_events && ui.small_button("📄").on_hover_text("View").clicked() {
-                                                act = Some(Act::View((*e).clone()));
-                                            }
-                                            if ui.small_button("↗").on_hover_text("Open with the Windows default program").clicked() {
-                                                act = Some(Act::External((*e).clone()));
-                                            }
-                                            if ui.small_button("💾").on_hover_text("Save a copy…").clicked() {
-                                                act = Some(Act::Save((*e).clone()));
-                                            }
-                                        });
-                                        ui.end_row();
-                                    }
-                                });
-                            });
+                    // deeper indentation per folder level than egui's default
+                    ui.spacing_mut().indent = 28.0;
+                    if !root.files.is_empty() {
+                        dir_ui(ui, "/", "", 0, &Dir { files: std::mem::take(&mut root.files), dirs: BTreeMap::new() }, &ctxf, &mut act);
+                    }
+                    for (name, d) in &root.dirs {
+                        dir_ui(ui, name, name, 0, d, &ctxf, &mut act);
                     }
                 });
             });
@@ -599,4 +555,97 @@ fn node_ui(ui: &mut egui::Ui, n: &XmlNode, depth: usize, idx: usize, pal: &Palet
                 node_ui(ui, c, depth + 1, k, pal);
             }
         });
+}
+
+/// what was clicked in the Files window
+enum Act {
+    View(ArchiveEntry),
+    Table(ArchiveEntry),
+    External(ArchiveEntry),
+    Save(ArchiveEntry),
+    Main,
+}
+
+/// one folder of the archive with its files and subfolders
+#[derive(Default)]
+struct Dir<'a> {
+    files: Vec<&'a ArchiveEntry>,
+    dirs: BTreeMap<String, Dir<'a>>,
+}
+
+impl Dir<'_> {
+    fn count(&self) -> usize {
+        self.files.len() + self.dirs.values().map(|d| d.count()).sum::<usize>()
+    }
+}
+
+struct FileRowCtx<'a> {
+    current: Option<&'a str>,
+    pal: &'a Palette,
+    filtered: bool,
+}
+
+fn dir_ui(ui: &mut egui::Ui, name: &str, path: &str, depth: usize, d: &Dir, c: &FileRowCtx, act: &mut Option<Act>) {
+    let n = d.count();
+    egui::CollapsingHeader::new(RichText::new(format!("📁 {name}   ({n})")).strong())
+        .id_salt(("folder", path))
+        // top level and small folders open; a folder with only subfolders opens too
+        .default_open(depth == 0 || n <= 40 || d.files.is_empty())
+        .open(if c.filtered { Some(true) } else { None })
+        .show(ui, |ui| {
+            for (sub, sd) in &d.dirs {
+                dir_ui(ui, sub, &format!("{path}/{sub}"), depth + 1, sd, c, act);
+            }
+            if !d.files.is_empty() {
+                file_rows(ui, path, &d.files, c, act);
+            }
+        });
+}
+
+fn file_rows(ui: &mut egui::Ui, path: &str, list: &[&ArchiveEntry], c: &FileRowCtx, act: &mut Option<Act>) {
+    let pal = c.pal;
+    egui::Grid::new(("files", path)).striped(true).num_columns(4).spacing([12.0, 2.0]).show(ui, |ui| {
+        for e in list {
+            let name = e.file_name();
+            let is_current = c.current == Some(e.name.as_str()) || (c.current.is_none() && e.is_events);
+            let mut t = RichText::new(format!("{} {}", files::icon(name), name));
+            if is_current {
+                t = t.strong().color(pal.accent);
+            }
+            let r = fixed(ui, 360.0, |ui| ui.add(egui::Label::new(t).sense(Sense::click()).truncate())).on_hover_text(&e.name);
+            if r.clicked() {
+                *act = Some(if e.is_events { Act::Main } else { Act::View((*e).clone()) });
+            }
+            fixed(ui, 64.0, |ui| ui.label(RichText::new(files::fmt_size(e.size)).color(pal.text_weak)));
+            let desc = if is_current {
+                "● shown in the table".to_owned()
+            } else if e.is_events {
+                "Event log (main table)".to_owned()
+            } else {
+                files::describe(&e.name).unwrap_or("").to_owned()
+            };
+            fixed(ui, 300.0, |ui| ui.add(egui::Label::new(RichText::new(desc).small().color(if is_current { pal.accent } else { pal.text_weak })).truncate()));
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                let binary = files::is_binary_name(&e.name);
+                if e.is_events {
+                    if !is_current && ui.small_button("📊").on_hover_text("Back to the main event log").clicked() {
+                        *act = Some(Act::Main);
+                    }
+                } else if !binary && e.size > 0 && !e.name.to_ascii_lowercase().ends_with(".xml") && ui.small_button("📊").on_hover_text("Open as a table").clicked() {
+                    *act = Some(Act::Table((*e).clone()));
+                }
+                if !e.is_events && ui.small_button("📄").on_hover_text("View").clicked() {
+                    *act = Some(Act::View((*e).clone()));
+                }
+                if ui.small_button("↗").on_hover_text("Open with the Windows default program").clicked() {
+                    *act = Some(Act::External((*e).clone()));
+                }
+                if ui.small_button("💾").on_hover_text("Save a copy…").clicked() {
+                    *act = Some(Act::Save((*e).clone()));
+                }
+            });
+            ui.end_row();
+        }
+    });
 }

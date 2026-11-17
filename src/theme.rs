@@ -190,3 +190,25 @@ impl RowColors {
         }
     }
 }
+
+/// bookmark mark in the table: a small waving flag on a pole, painted (sharp at any size)
+pub fn paint_flag(p: &egui::Painter, rect: egui::Rect, color: Color32) {
+    use egui::{pos2, Shape, Stroke};
+    let h = rect.height().min(16.0);
+    let c = rect.center();
+    let top = c.y - h * 0.5;
+    let x = c.x - h * 0.34;
+    let w = h * 0.8;
+    let fh = h * 0.56;
+    // cloth: a waving band built from small quads (each one convex)
+    let n = 10;
+    let wave = |t: f32| (t * std::f32::consts::TAU).sin() * h * 0.07;
+    for i in 0..n {
+        let (t0, t1) = (i as f32 / n as f32, (i + 1) as f32 / n as f32);
+        let (x0, x1) = (x + t0 * w, x + t1 * w);
+        let (y0, y1) = (top + 1.0 + wave(t0), top + 1.0 + wave(t1));
+        p.add(Shape::convex_polygon(vec![pos2(x0, y0), pos2(x1, y1), pos2(x1, y1 + fh), pos2(x0, y0 + fh)], color, Stroke::new(0.6_f32, color)));
+    }
+    // pole
+    p.line_segment([pos2(x, top), pos2(x, top + h)], Stroke::new(1.8_f32, color.gamma_multiply(0.8)));
+}

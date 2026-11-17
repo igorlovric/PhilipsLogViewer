@@ -72,7 +72,7 @@ impl Col {
     ];
     fn title(self) -> &'static str {
         match self {
-            Col::Bookmark => "🔖",
+            Col::Bookmark => "⚑",
             Col::Index => "Index",
             Col::Category => "Event Category",
             Col::Time => "Time Stamp",
@@ -213,7 +213,6 @@ struct PatternEditor {
 
 enum RowAction {
     Click(usize, egui::Modifiers),
-    Double(usize),
     Bookmark(usize),
     NewPattern,
     CopyRows,
@@ -1249,7 +1248,7 @@ impl App {
                     }
                     ui.separator();
                     let mut bo = self.bookmarks_only;
-                    if ui.toggle_value(&mut bo, format!("🔖 Bookmarked ({})", self.bookmarks.len())).on_hover_text("Ctrl+B bookmark · F2 next").changed() {
+                    if ui.toggle_value(&mut bo, format!("⚑ Bookmarked ({})", self.bookmarks.len())).on_hover_text("Ctrl+B bookmark · F2 next").changed() {
                         self.bookmarks_only = bo;
                         self.dirty = true;
                     }
@@ -1485,14 +1484,14 @@ impl App {
             }
             ui.horizontal(|ui| {
                 if self.bookmarks.contains(&fe) {
-                    if ui.button(RichText::new("🔖").color(pal.accent)).on_hover_text("Remove bookmark").clicked() {
+                    if ui.button(RichText::new("⚑").color(pal.accent)).on_hover_text("Remove bookmark").clicked() {
                         bm_toggle = Some(fe);
                     }
                     let note = self.bookmark_notes.entry(fe).or_default();
                     if ui.add(egui::TextEdit::singleline(note).hint_text("Bookmark comment…").desired_width(f32::INFINITY)).changed() {
                         note_changed = true;
                     }
-                } else if ui.small_button("🔖 Bookmark (Ctrl+B / double-click)").clicked() {
+                } else if ui.small_button("⚑ Bookmark (Ctrl+B)").clicked() {
                     bm_toggle = Some(fe);
                 }
             });
@@ -1587,7 +1586,7 @@ impl App {
         let mut bms: Vec<u32> = self.bookmarks.iter().copied().collect();
         bms.sort_by_key(|&i| (log.events[i as usize].ts, i));
         let file = log.data_file();
-        egui::Window::new(RichText::new("🔖  Bookmarks & notes").strong())
+        egui::Window::new(RichText::new("⚑  Bookmarks & notes").strong())
             .open(&mut open)
             .default_size([640.0, 500.0])
             .min_width(420.0)
@@ -1608,7 +1607,7 @@ impl App {
                 ui.add_space(8.0);
                 ui.label(RichText::new(format!("Bookmarks ({})", bms.len())).strong());
                 if bms.is_empty() {
-                    ui.label(RichText::new("No bookmarks. Double-click a row or press Ctrl+B.").color(pal.text_weak));
+                    ui.label(RichText::new("No bookmarks. Select a row and press Ctrl+B, or right-click it → Bookmark.").color(pal.text_weak));
                 }
                 egui::ScrollArea::vertical().auto_shrink([false, false]).max_height(ui.available_height() - 24.0).show(ui, |ui| {
                     for &ei in &bms {
@@ -1835,7 +1834,7 @@ impl App {
                             ui.label(RichText::new("Columns shown").strong());
                             for cc in Col::ALL {
                                 let mut on = all_cols.contains(&cc);
-                                let name = if cc == Col::Bookmark { "🔖 Bookmark" } else { cc.title() };
+                                let name = if cc == Col::Bookmark { "⚑ Bookmark" } else { cc.title() };
                                 let t = if empty_cols.contains(&cc) {
                                     RichText::new(format!("{name}   (empty in this log)")).color(pal.text_weak)
                                 } else {
@@ -1947,7 +1946,8 @@ impl App {
                         match c {
                             Col::Bookmark => {
                                 if bookmarks.contains(&ei) {
-                                    let r = ui.add(egui::Label::new(RichText::new("🔖").color(pal.accent)).selectable(false));
+                                    let (rect, r) = ui.allocate_exact_size(egui::vec2(ui.available_width(), ui.available_height()), Sense::hover());
+                                    crate::theme::paint_flag(ui.painter(), rect, pal.accent);
                                     if let Some(n) = notes.get(&ei).filter(|n| !n.is_empty()) {
                                         r.on_hover_text(n.as_str());
                                     }
@@ -1999,9 +1999,8 @@ impl App {
                     });
                 }
                 let resp = row.response();
-                if resp.double_clicked() {
-                    actions.push(RowAction::Double(vi));
-                } else if resp.clicked() {
+                // a double-click only selects the row (bookmarks: Ctrl+B, right-click menu, bookmark button)
+                if resp.clicked() {
                     actions.push(RowAction::Click(vi, modifiers));
                 }
                 if resp.secondary_clicked() && !is_sel {
@@ -2016,7 +2015,7 @@ impl App {
                         actions.push(RowAction::CopyRows);
                         ui.close_menu();
                     }
-                    if ui.button(if bookmarks.contains(&ei) { "🔖 Remove bookmark" } else { "🔖 Bookmark (Ctrl+B)" }).clicked() {
+                    if ui.button(if bookmarks.contains(&ei) { "⚑ Remove bookmark" } else { "⚑ Bookmark (Ctrl+B)" }).clicked() {
                         actions.push(RowAction::Bookmark(vi));
                         ui.close_menu();
                     }
@@ -2084,7 +2083,7 @@ impl App {
                     }
                     self.focus = Some(ei);
                 }
-                RowAction::Double(vi) | RowAction::Bookmark(vi) => {
+                RowAction::Bookmark(vi) => {
                     let ei = self.view[vi];
                     self.toggle_bookmark(ei);
                 }
